@@ -30,12 +30,17 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: client/package.json
 
       - name: Install dependencies
         run: |
           cd client
-          npm ci
+          # Utiliser npm ci si package-lock.json existe, sinon npm install
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Build
         run: |
