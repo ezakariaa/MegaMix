@@ -124,8 +124,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audioUrl = track.audioUrl
     } else if (track.id) {
       // Utiliser la variable d'environnement VITE_API_URL si définie, sinon utiliser localhost par défaut
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-      audioUrl = `${apiBaseUrl}/api/music/track/${track.id}`
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const cleanUrl = baseUrl.replace(/\/$/, '') // Retirer le slash final s'il existe
+      const apiBaseUrl = cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`
+      audioUrl = `${apiBaseUrl}/music/track/${track.id}`
     } else {
       console.error('Aucune URL audio disponible pour la piste:', track)
       return
