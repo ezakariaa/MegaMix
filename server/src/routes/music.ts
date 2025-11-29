@@ -99,7 +99,7 @@ router.post('/scan-files', upload.array('files', 100), async (req: Request, res:
               year: track.year,
               genre: track.genre,
               trackCount: 1,
-              coverArt: coverArt,
+              coverArt: coverArt ?? undefined,
             })
           } else {
             const album = albumsMap.get(albumKey)!
@@ -1298,7 +1298,7 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                       year: track.year,
                       genre: track.genre,
                       trackCount: 1,
-                      coverArt: coverArt,
+                      coverArt: coverArt ?? undefined,
                       googleDriveFolderId: fileId, // Associer le dossier Google Drive
                     })
                     console.log(`[GOOGLE DRIVE] Nouvel album créé: ${track.album}`)
@@ -1538,7 +1538,7 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
           year: track.year,
           genre: track.genre,
           trackCount: 1,
-          coverArt: coverArt,
+          coverArt: coverArt || undefined,
         })
       }
 

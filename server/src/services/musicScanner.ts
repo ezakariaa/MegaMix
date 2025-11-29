@@ -52,7 +52,7 @@ export async function scanMusicFolder(folderPath: string): Promise<{
                   year: track.year,
                   genre: track.genre,
                   trackCount: 1,
-                  coverArt: null,
+                  coverArt: undefined,
                 })
               } else {
                 const album = albumsMap.get(albumKey)!

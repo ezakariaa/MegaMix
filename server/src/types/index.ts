@@ -16,7 +16,7 @@ export interface Album {
   year?: number
   genre?: string
   trackCount?: number
-  coverArt?: string
+  coverArt?: string | null
   googleDriveFolderId?: string // ID du dossier Google Drive si l'album vient d'un dossier
 }
 
