@@ -9,6 +9,7 @@ import { Album, Track, Artist } from '../types'
 import { loadAllData, saveAllData, saveAlbums, saveTracks, saveArtists } from '../utils/dataPersistence'
 import { searchArtistImage, searchArtistBackground } from '../utils/artistImageSearch'
 import { getArtistBiography } from '../utils/artistBiography'
+import { syncToKoyeb } from '../utils/syncToKoyeb'
 
 // Import conditionnel de sharp (peut ne pas être installé)
 let sharp: any = null
@@ -1408,6 +1409,11 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         try {
           await saveAllData(albums, tracks, artists)
           console.log('[PERSISTENCE] Données sauvegardées avec succès après Google Drive (dossier)')
+          
+          // Synchroniser avec Koyeb en arrière-plan (ne pas bloquer la réponse)
+          syncToKoyeb(albums, tracks, artists).catch((error) => {
+            console.error('[SYNC KOYEB] Erreur lors de la synchronisation après ajout Google Drive (dossier):', error)
+          })
         } catch (error) {
           console.error('[PERSISTENCE] Erreur lors de la sauvegarde après Google Drive (dossier):', error)
           // Ne pas échouer la requête si la sauvegarde échoue, mais logger l'erreur
@@ -1561,6 +1567,11 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
       try {
         await saveAllData(albums, tracks, artists)
         console.log('[PERSISTENCE] Données sauvegardées avec succès après Google Drive (fichier)')
+        
+        // Synchroniser avec Koyeb en arrière-plan (ne pas bloquer la réponse)
+        syncToKoyeb(albums, tracks, artists).catch((error) => {
+          console.error('[SYNC KOYEB] Erreur lors de la synchronisation après ajout Google Drive:', error)
+        })
       } catch (error) {
         console.error('[PERSISTENCE] Erreur lors de la sauvegarde après Google Drive (fichier):', error)
         // Ne pas échouer la requête si la sauvegarde échoue, mais logger l'erreur
