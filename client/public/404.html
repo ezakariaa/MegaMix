@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <title>MuZak - Gestionnaire de Bibliothèque Musicale</title>
+    <script>
+      // Rediriger vers index.html pour gérer le routing React
+      // Cette solution fonctionne pour les routes React Router sur GitHub Pages
+      var path = location.pathname;
+      var segments = path.split('/').filter(function(segment) {
+        return segment !== '';
+      });
+      
+      // Si on est sur une route qui n'existe pas, rediriger vers index.html
+      // et laisser React Router gérer la route
+      if (segments.length > 0 && !path.endsWith('.html') && !path.endsWith('.js') && !path.endsWith('.css')) {
+        sessionStorage.redirect = location.href;
+        var basePath = location.pathname.split('/').slice(0, -1).join('/');
+        if (basePath === '') basePath = '/';
+        location.replace(basePath + '/index.html');
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>
+      Vous devez activer JavaScript pour utiliser cette application.
+    </noscript>
+  </body>
+</html>
+
+

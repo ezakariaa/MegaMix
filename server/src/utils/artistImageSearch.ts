@@ -13,9 +13,11 @@ export async function searchArtistBackground(artistName: string): Promise<string
   // PRIORITÉ 1 : Essayer Fanart.tv artistbackground en premier (bannière d'artiste)
   try {
     const fanartBackground = await searchFanartBackground(artistName)
-    if (fanartBackground) {
+    if (fanartBackground && await isImageAccessible(fanartBackground)) {
       console.log(`[ARTIST BACKGROUND] Image bannière trouvée sur Fanart.tv (artistbackground) pour: ${artistName}`)
       return fanartBackground
+    } else if (fanartBackground) {
+      console.warn(`[ARTIST BACKGROUND] Image Fanart.tv trouvée mais non accessible (403), essai des autres sources...`)
     }
   } catch (error) {
     console.warn(`[ARTIST BACKGROUND] Erreur Fanart.tv (background) pour ${artistName}:`, error)
@@ -24,9 +26,11 @@ export async function searchArtistBackground(artistName: string): Promise<string
   // PRIORITÉ 2 : Essayer Fanart.tv artistthumb en second (photo de profil d'artiste)
   try {
     const fanartThumb = await searchFanartThumb(artistName)
-    if (fanartThumb) {
+    if (fanartThumb && await isImageAccessible(fanartThumb)) {
       console.log(`[ARTIST BACKGROUND] Image d'artiste (thumb) trouvée sur Fanart.tv pour: ${artistName}`)
       return fanartThumb
+    } else if (fanartThumb) {
+      console.warn(`[ARTIST BACKGROUND] Image Fanart.tv (thumb) trouvée mais non accessible (403), essai des autres sources...`)
     }
   } catch (error) {
     console.warn(`[ARTIST BACKGROUND] Erreur Fanart.tv (thumb) pour ${artistName}:`, error)
@@ -35,9 +39,11 @@ export async function searchArtistBackground(artistName: string): Promise<string
   // PRIORITÉ 3 : Essayer Last.fm (retourne des photos d'artistes)
   try {
     const lastFmImage = await searchLastFm(artistName)
-    if (lastFmImage) {
+    if (lastFmImage && await isImageAccessible(lastFmImage)) {
       console.log(`[ARTIST BACKGROUND] Image d'artiste trouvée sur Last.fm pour: ${artistName}`)
       return lastFmImage
+    } else if (lastFmImage) {
+      console.warn(`[ARTIST BACKGROUND] Image Last.fm trouvée mais non accessible, essai des autres sources...`)
     }
   } catch (error) {
     console.warn(`[ARTIST BACKGROUND] Erreur Last.fm pour ${artistName}:`, error)
@@ -46,9 +52,11 @@ export async function searchArtistBackground(artistName: string): Promise<string
   // PRIORITÉ 4 : Essayer Deezer
   try {
     const deezerImage = await searchDeezer(artistName)
-    if (deezerImage) {
+    if (deezerImage && await isImageAccessible(deezerImage)) {
       console.log(`[ARTIST BACKGROUND] Image d'artiste trouvée sur Deezer pour: ${artistName}`)
       return deezerImage
+    } else if (deezerImage) {
+      console.warn(`[ARTIST BACKGROUND] Image Deezer trouvée mais non accessible, essai des autres sources...`)
     }
   } catch (error) {
     console.warn(`[ARTIST BACKGROUND] Erreur Deezer pour ${artistName}:`, error)
@@ -57,9 +65,11 @@ export async function searchArtistBackground(artistName: string): Promise<string
   // PRIORITÉ 5 : Essayer Spotify
   try {
     const spotifyImage = await searchSpotify(artistName)
-    if (spotifyImage) {
+    if (spotifyImage && await isImageAccessible(spotifyImage)) {
       console.log(`[ARTIST BACKGROUND] Image d'artiste trouvée sur Spotify pour: ${artistName}`)
       return spotifyImage
+    } else if (spotifyImage) {
+      console.warn(`[ARTIST BACKGROUND] Image Spotify trouvée mais non accessible, essai des autres sources...`)
     }
   } catch (error) {
     console.warn(`[ARTIST BACKGROUND] Erreur Spotify pour ${artistName}:`, error)
@@ -68,9 +78,11 @@ export async function searchArtistBackground(artistName: string): Promise<string
   // PRIORITÉ 6 : Essayer Discogs
   try {
     const discogsImage = await searchDiscogs(artistName)
-    if (discogsImage) {
+    if (discogsImage && await isImageAccessible(discogsImage)) {
       console.log(`[ARTIST BACKGROUND] Image d'artiste trouvée sur Discogs pour: ${artistName}`)
       return discogsImage
+    } else if (discogsImage) {
+      console.warn(`[ARTIST BACKGROUND] Image Discogs trouvée mais non accessible`)
     }
   } catch (error) {
     console.warn(`[ARTIST BACKGROUND] Erreur Discogs pour ${artistName}:`, error)
@@ -802,6 +814,49 @@ function searchDiscogs(artistName: string): Promise<string | null> {
  * Recherche alternative : utiliser une recherche Google Images via DuckDuckGo ou autre
  * Note: Cette approche est plus complexe et peut nécessiter du scraping
  */
+/**
+ * Vérifie si une image est accessible (pas d'erreur 403, 404, etc.)
+ */
+function isImageAccessible(imageUrl: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const protocol = imageUrl.startsWith('https') ? https : http
+    const timeout = setTimeout(() => {
+      resolve(false)
+    }, 3000) // Timeout court pour ne pas ralentir
+
+    protocol.get(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Referer': 'https://www.google.com/'
+      },
+      timeout: 3000
+    }, (response: any) => {
+      clearTimeout(timeout)
+      // Vérifier si l'image est accessible (200 OK)
+      // Accepter aussi les redirections (301, 302, 303, 307, 308)
+      if (response.statusCode === 200 || 
+          response.statusCode === 301 || 
+          response.statusCode === 302 || 
+          response.statusCode === 303 || 
+          response.statusCode === 307 || 
+          response.statusCode === 308) {
+        resolve(true)
+      } else {
+        // Erreur 403, 404, etc. - image non accessible
+        resolve(false)
+      }
+      // Fermer la connexion
+      response.destroy()
+    }).on('error', () => {
+      clearTimeout(timeout)
+      resolve(false)
+    }).on('timeout', () => {
+      resolve(false)
+    })
+  })
+}
+
 export async function searchArtistImageAlternative(artistName: string): Promise<string | null> {
   // Pour l'instant, on utilise une approche simple avec Last.fm
   // On peut améliorer avec d'autres sources plus tard

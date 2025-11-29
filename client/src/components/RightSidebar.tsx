@@ -121,8 +121,20 @@ function RightSidebar() {
                     className="artist-banner-image"
                     onLoad={() => console.log('[RightSidebar] Image chargée avec succès')}
                     onError={(e) => {
-                      console.error('[RightSidebar] Erreur chargement image:', artist.coverArt)
-                      console.error('[RightSidebar] Erreur:', e)
+                      console.warn('[RightSidebar] Erreur chargement image, affichage du placeholder:', artist.coverArt)
+                      // Masquer l'image en cas d'erreur et afficher le placeholder
+                      const target = e.target as HTMLImageElement
+                      if (target) {
+                        target.style.display = 'none'
+                        // Afficher le placeholder si ce n'est pas déjà fait
+                        const container = target.parentElement
+                        if (container && !container.querySelector('.artist-banner-image-placeholder')) {
+                          const placeholder = document.createElement('div')
+                          placeholder.className = 'artist-banner-image-placeholder'
+                          placeholder.innerHTML = '<i class="bi bi-person-circle"></i>'
+                          container.appendChild(placeholder)
+                        }
+                      }
                     }}
                   />
                 ) : (

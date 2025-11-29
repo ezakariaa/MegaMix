@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const API_BASE_URL = 'http://localhost:5000/api'
+// Utiliser la variable d'environnement VITE_API_URL si définie, sinon utiliser localhost par défaut
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export interface Album {
   id: string

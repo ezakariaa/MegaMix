@@ -10,6 +10,12 @@
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+.album-count {
+  color: var(--spotify-green);
+  font-weight: 700;
+  margin-right: 8px;
+}
+
 .text-muted {
   color: var(--spotify-light-gray) !important;
 }

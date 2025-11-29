@@ -1609,15 +1609,52 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
 
     protocol.get(decodedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'image/*',
-        'Referer': decodedUrl
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.google.com/',
+        'Accept-Encoding': 'gzip, deflate, br'
       },
       timeout: 10000
     }, (response: any) => {
+      // Gérer les redirections
+      if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303 || response.statusCode === 307 || response.statusCode === 308) {
+        const location = response.headers.location
+        if (location) {
+          console.log(`[IMAGE PROXY] Redirection vers: ${location.substring(0, 100)}`)
+          // Suivre la redirection
+          const redirectUrl = location.startsWith('http') ? location : new URL(location, decodedUrl).href
+          return protocol.get(redirectUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+              'Referer': 'https://www.google.com/'
+            },
+            timeout: 10000
+          }, (redirectResponse: any) => {
+            if (redirectResponse.statusCode !== 200) {
+              console.warn(`[IMAGE PROXY] Erreur HTTP ${redirectResponse.statusCode} après redirection pour: ${decodedUrl.substring(0, 100)}`)
+              // Retourner 204 (No Content) au lieu d'une erreur pour que le frontend puisse gérer gracieusement
+              return res.status(204).end()
+            }
+            const contentType = redirectResponse.headers['content-type'] || 'image/jpeg'
+            res.setHeader('Content-Type', contentType)
+            res.setHeader('Cache-Control', 'public, max-age=86400')
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            redirectResponse.pipe(res)
+          }).on('error', () => {
+            if (!res.headersSent) {
+              res.status(204).end()
+            }
+          })
+        }
+      }
+      
       if (response.statusCode !== 200) {
-        console.error(`[IMAGE PROXY] Erreur HTTP ${response.statusCode} pour: ${decodedUrl.substring(0, 100)}`)
-        return res.status(response.statusCode).json({ error: 'Image non trouvée' })
+        console.warn(`[IMAGE PROXY] Erreur HTTP ${response.statusCode} pour: ${decodedUrl.substring(0, 100)}`)
+        // Retourner 204 (No Content) au lieu d'une erreur pour que le frontend puisse gérer gracieusement
+        // Le frontend pourra alors utiliser une image par défaut ou masquer l'image
+        return res.status(204).end()
       }
 
       const contentType = response.headers['content-type'] || 'image/jpeg'

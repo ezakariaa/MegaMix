@@ -12,9 +12,26 @@ const PORT = process.env.PORT || 5000
 // Créer le dossier de téléchargement
 ensureUploadDirectory()
 
-// Configuration CORS plus permissive pour le développement
+// Configuration CORS
+// En production, accepter toutes les origines si ALLOWED_ORIGINS n'est pas défini
+// Sinon, utiliser la liste des origines autorisées
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : process.env.NODE_ENV === 'production' 
+    ? ['*'] // En production, accepter toutes les origines par défaut
+    : ['http://localhost:3000'] // En développement, seulement localhost
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // En production sans origine spécifique, autoriser toutes les origines
+    if (allowedOrigins.includes('*') || !origin) {
+      return callback(null, true)
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
