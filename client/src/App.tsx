@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { PlayerProvider } from './contexts/PlayerContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -15,14 +16,24 @@ import AlbumDetail from './pages/AlbumDetail'
 import './App.css'
 
 function App() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  const handleMenuToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen)
+  }
+
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false)
+  }
+
   return (
     <ErrorBoundary>
       <PlayerProvider>
         <Router>
           <div className="App">
-            <Navbar />
+            <Navbar onMenuToggle={handleMenuToggle} />
             <div className="app-layout">
-              <Sidebar />
+              <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
               <main className="main-content">
                 <div className="main-content-wrapper">
                   <Routes>

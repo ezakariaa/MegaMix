@@ -84,3 +84,68 @@
   background-color: var(--spotify-green);
   opacity: 0.7;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .drag-message,
+  .processing-message {
+    padding: 32px 24px;
+    max-width: 90%;
+    margin: 0 16px;
+  }
+
+  .drag-message i {
+    font-size: 3rem;
+    margin-bottom: 20px;
+  }
+
+  .drag-message h3 {
+    font-size: 1.25rem;
+    margin-bottom: 10px;
+  }
+
+  .drag-message p {
+    font-size: 0.9rem;
+  }
+
+  .processing-message .spinner-border {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-bottom: 12px;
+  }
+
+  .processing-message p {
+    font-size: 1rem;
+  }
+
+  .folder-select-button {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .drag-message,
+  .processing-message {
+    padding: 24px 16px;
+    max-width: 95%;
+  }
+
+  .drag-message i {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+  }
+
+  .drag-message h3 {
+    font-size: 1.1rem;
+  }
+
+  .drag-message p {
+    font-size: 0.85rem;
+  }
+
+  .folder-select-button {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+}

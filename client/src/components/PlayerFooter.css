@@ -446,5 +446,87 @@
   .player-track-artist {
     font-size: 0.75rem;
   }
+
+  .player-progress {
+    gap: 8px;
+  }
+
+  .player-time-current,
+  .player-time-total {
+    font-size: 0.625rem;
+    min-width: 35px;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-footer {
+    height: 65px;
+    padding: 0 6px;
+  }
+
+  .player-left {
+    flex: 0 0 45%;
+    min-width: 100px;
+    gap: 10px;
+  }
+
+  .player-album-art {
+    width: 44px;
+    height: 44px;
+  }
+
+  .player-track-info {
+    gap: 2px;
+  }
+
+  .player-track-title {
+    font-size: 0.75rem;
+  }
+
+  .player-track-artist {
+    font-size: 0.6875rem;
+  }
+
+  .player-center {
+    flex: 1;
+  }
+
+  .player-controls {
+    gap: 6px;
+  }
+
+  .player-control-btn {
+    padding: 3px;
+    font-size: 0.8125rem;
+  }
+
+  .player-play-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 0.9rem;
+  }
+
+  .player-progress {
+    gap: 6px;
+  }
+
+  .player-progress-bar {
+    height: 3px;
+  }
+
+  .player-progress-bar:hover {
+    height: 4px;
+  }
+
+  .player-time-current,
+  .player-time-total {
+    font-size: 0.5625rem;
+    min-width: 30px;
+  }
+
+  .player-like-btn {
+    padding: 2px;
+    font-size: 0.875rem;
+  }
 }
 

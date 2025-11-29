@@ -168,10 +168,64 @@
 }
 
 /* Responsive */
+@media (max-width: 992px) {
+  .album-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 14px;
+    padding: 20px 0;
+  }
+}
+
 @media (max-width: 768px) {
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 12px;
     padding: 16px 0;
+  }
+
+  .album-title {
+    font-size: 0.9rem;
+  }
+
+  .album-artist {
+    font-size: 0.8125rem;
+  }
+
+  .album-year,
+  .album-track-count {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .album-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .album-cover-container {
+    margin-bottom: 8px;
+  }
+
+  .album-title {
+    font-size: 0.85rem;
+  }
+
+  .album-artist {
+    font-size: 0.75rem;
+  }
+
+  .album-year,
+  .album-track-count {
+    font-size: 0.625rem;
+  }
+
+  .album-play-button-overlay {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    bottom: 6px;
+    right: 6px;
   }
 }

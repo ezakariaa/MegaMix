@@ -50,17 +50,55 @@
   background-clip: text;
 }
 
+/* Bouton hamburger pour mobile */
+.navbar-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 16px;
+  transition: color 0.2s ease;
+}
+
+.navbar-menu-toggle:hover {
+  color: var(--spotify-green);
+}
+
 /* Responsive */
+@media (max-width: 992px) {
+  .navbar-menu-toggle {
+    display: block;
+  }
+}
+
 @media (max-width: 768px) {
   .navbar-container {
     padding: 0 16px;
   }
 
   .navbar-brand {
-    font-size: 1.2rem !important;
+    font-size: 1.1rem !important;
   }
 
   .navbar-brand i {
+    font-size: 1.2rem;
+  }
+
+  .navbar-menu-toggle {
     font-size: 1.3rem;
+    margin-right: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-brand {
+    font-size: 1rem !important;
+  }
+
+  .navbar-brand i {
+    font-size: 1.1rem;
   }
 }

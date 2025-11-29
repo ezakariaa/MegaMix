@@ -43,6 +43,9 @@ tmp/
 temp/
 uploads/
 
+# Backups
+backups/
+
 # Data persistence
 data/
 *.json

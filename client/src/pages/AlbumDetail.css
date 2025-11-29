@@ -270,6 +270,22 @@
 }
 
 /* Responsive */
+@media (max-width: 992px) {
+  .album-detail-header {
+    padding: 24px;
+    min-height: 300px;
+  }
+
+  .album-detail-cover {
+    width: 200px;
+    height: 200px;
+  }
+
+  .album-detail-title {
+    font-size: 3rem;
+  }
+}
+
 @media (max-width: 768px) {
   .album-detail-header {
     flex-direction: column;
@@ -280,17 +296,36 @@
   }
 
   .album-detail-cover {
-    width: 200px;
-    height: 200px;
+    width: 180px;
+    height: 180px;
   }
 
   .album-detail-title {
-    font-size: 2.5rem;
+    font-size: 2rem;
+    letter-spacing: -1px;
+  }
+
+  .album-detail-meta {
+    justify-content: center;
+    font-size: 0.8125rem;
   }
 
   .album-detail-controls {
     padding: 16px;
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .album-play-button {
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+  }
+
+  .album-control-button {
+    font-size: 1.3rem;
+    padding: 6px;
   }
 
   .album-tracklist {
@@ -302,6 +337,76 @@
     grid-template-columns: 30px 1fr 60px;
     gap: 8px;
     padding: 8px;
+  }
+
+  .tracklist-item-title {
+    font-size: 0.875rem;
+  }
+
+  .tracklist-item-artist {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .album-detail-header {
+    padding: 20px 12px;
+  }
+
+  .album-detail-cover {
+    width: 160px;
+    height: 160px;
+  }
+
+  .album-detail-title {
+    font-size: 1.75rem;
+  }
+
+  .album-detail-type {
+    font-size: 0.75rem;
+  }
+
+  .album-detail-controls {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .album-play-button {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+
+  .album-control-button {
+    font-size: 1.2rem;
+    padding: 4px;
+  }
+
+  .album-tracklist {
+    padding: 0 12px 12px 12px;
+  }
+
+  .tracklist-header,
+  .tracklist-item {
+    grid-template-columns: 25px 1fr 50px;
+    gap: 6px;
+    padding: 6px 4px;
+  }
+
+  .tracklist-item-number {
+    font-size: 0.75rem;
+  }
+
+  .tracklist-item-title {
+    font-size: 0.8125rem;
+  }
+
+  .tracklist-item-artist {
+    font-size: 0.75rem;
+  }
+
+  .tracklist-item-duration {
+    font-size: 0.75rem;
   }
 }
 

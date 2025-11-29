@@ -284,7 +284,19 @@
 }
 
 /* Responsive */
+@media (max-width: 1200px) {
+  .right-sidebar {
+    width: 18%;
+  }
+}
+
 @media (max-width: 992px) {
+  .right-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
   .right-sidebar {
     display: none;
   }
