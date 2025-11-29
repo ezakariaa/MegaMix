@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import RightSidebar from './components/RightSidebar'
 import PlayerFooter from './components/PlayerFooter'
+import MobileNavFooter from './components/MobileNavFooter'
 import Home from './pages/Home'
 import Artists from './pages/Artists'
 import Albums from './pages/Albums'
@@ -50,6 +51,7 @@ function App() {
               <RightSidebar />
             </div>
             <PlayerFooter />
+            <MobileNavFooter />
           </div>
         </Router>
       </PlayerProvider>

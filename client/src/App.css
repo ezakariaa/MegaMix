@@ -104,21 +104,22 @@ body.sidebar-collapsed .main-content {
 @media (max-width: 768px) {
   .app-layout {
     margin-top: 50px;
-    margin-bottom: 70px;
+    /* margin-bottom géré par MobileNavFooter.css pour inclure le footer de navigation */
   }
 
   .main-content {
     padding: 16px 12px;
-    min-height: calc(100vh - 50px - 70px);
+    min-height: calc(100vh - 50px - 130px); /* 70px player + 60px nav */
   }
 }
 
 @media (max-width: 480px) {
   .app-layout {
-    margin-bottom: 70px;
+    /* margin-bottom géré par MobileNavFooter.css pour inclure le footer de navigation */
   }
 
   .main-content {
     padding: 12px 8px;
+    min-height: calc(100vh - 50px - 120px); /* 65px player + 55px nav */
   }
 }

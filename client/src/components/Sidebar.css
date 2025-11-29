@@ -198,6 +198,11 @@
   .sidebar-toggle {
     display: none;
   }
+
+  /* Masquer la sidebar par défaut sur mobile, elle s'ouvre seulement via le bouton hamburger */
+  .sidebar:not(.open) {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {

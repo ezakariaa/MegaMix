@@ -10,6 +10,19 @@
   padding: 0 16px;
 }
 
+/* Ajuster la position sur mobile pour laisser place au footer de navigation */
+@media (max-width: 992px) {
+  .player-footer {
+    bottom: 60px; /* Espace pour le footer de navigation mobile (60px) */
+  }
+}
+
+@media (max-width: 480px) {
+  .player-footer {
+    bottom: 55px; /* Espace pour le footer de navigation mobile (55px) */
+  }
+}
+
 .player-footer-content {
   display: flex;
   align-items: center;

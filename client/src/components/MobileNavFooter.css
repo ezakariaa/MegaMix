@@ -1,0 +1,101 @@
+/* Footer de navigation mobile */
+.mobile-nav-footer {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: var(--spotify-black);
+  border-top: 1px solid var(--spotify-gray);
+  z-index: 999;
+  padding: 0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Afficher uniquement sur mobile */
+@media (max-width: 992px) {
+  .mobile-nav-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+  }
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 6px 4px;
+  color: var(--spotify-light-gray);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-width: 0;
+  height: 100%;
+  gap: 4px;
+}
+
+.mobile-nav-item:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.mobile-nav-item.active {
+  color: var(--spotify-green);
+}
+
+.mobile-nav-item i {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.mobile-nav-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* Responsive pour très petits écrans */
+@media (max-width: 480px) {
+  .mobile-nav-footer {
+    height: 55px;
+  }
+
+  .mobile-nav-item {
+    padding: 4px 2px;
+    gap: 2px;
+  }
+
+  .mobile-nav-item i {
+    font-size: 1.2rem;
+  }
+
+  .mobile-nav-label {
+    font-size: 0.6rem;
+  }
+}
+
+/* Ajuster la marge du contenu principal pour le footer mobile */
+@media (max-width: 992px) {
+  .app-layout {
+    margin-bottom: 150px; /* 90px (player) + 60px (mobile nav) */
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    margin-bottom: 130px; /* 70px (player) + 60px (mobile nav) */
+  }
+}
+
+@media (max-width: 480px) {
+  .app-layout {
+    margin-bottom: 120px; /* 65px (player) + 55px (mobile nav) */
+  }
+}
