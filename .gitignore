@@ -49,3 +49,4 @@ data/
 !package.json
 !package-lock.json
 !tsconfig.json
+!tsconfig.node.json
