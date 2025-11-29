@@ -24,15 +24,23 @@ Guide complet pour déployer MegaMix en production.
 1. Cliquez sur **"Create Service"**
 2. Sélectionnez **"GitHub"**
 3. Choisissez votre dépôt **MegaMix**
-4. Configurez :
 
-#### Configuration Build
+### Étape 3 : Configuration Build
 
-- **Builder type** : `Dockerfile`
-- **Dockerfile location** : `server/Dockerfile` (Override activé)
-- **Work directory** : (vide - Override désactivé)
+#### Option A : Buildpack (Recommandé si Dockerfile ne fonctionne pas)
 
-#### Variables d'environnement
+1. **Builder type** : `Buildpack`
+2. **Work directory** : `server` (Override activé)
+3. **Build Command** : `npm install && npm run build`
+4. **Run Command** : `npm start`
+
+#### Option B : Dockerfile
+
+1. **Builder type** : `Dockerfile`
+2. **Dockerfile location** : `server/Dockerfile` (Override activé)
+3. **Work directory** : (vide - Override désactivé)
+
+### Étape 4 : Variables d'environnement
 
 Allez dans **"Environment"** et ajoutez :
 
@@ -50,13 +58,13 @@ FANART_API_KEY = votre_cle_ici
 
 ⚠️ **Important** : Ne définissez **PAS** `PORT` - Koyeb le gère automatiquement !
 
-### Étape 3 : Déployer
+### Étape 5 : Déployer
 
 1. Cliquez sur **"Deploy"**
 2. Attendez 3-5 minutes
 3. Notez l'URL : `https://votre-app.koyeb.app`
 
-### Étape 4 : Tester
+### Étape 6 : Tester
 
 Ouvrez dans votre navigateur :
 ```
@@ -74,11 +82,7 @@ Vous devriez voir :
 
 ## 🎨 Partie 2 : Déployer le Frontend sur GitHub Pages
 
-### Étape 1 : Configurer GitHub Actions
-
-Le fichier `.github/workflows/deploy.yml` est déjà configuré.
-
-### Étape 2 : Configurer l'URL du Backend
+### Étape 1 : Configurer l'URL du Backend
 
 1. Dans votre dépôt GitHub : **Settings** → **Secrets and variables** → **Actions**
 2. Cliquez sur **"New repository secret"**
@@ -86,13 +90,13 @@ Le fichier `.github/workflows/deploy.yml` est déjà configuré.
 4. Valeur : l'URL de votre backend Koyeb (ex: `https://votre-app.koyeb.app`)
 5. Cliquez sur **"Add secret"**
 
-### Étape 3 : Activer GitHub Pages
+### Étape 2 : Activer GitHub Pages
 
 1. **Settings** → **Pages**
 2. **Source** : `GitHub Actions`
-3. GitHub Actions déploiera automatiquement
+3. Le workflow `.github/workflows/deploy.yml` déploiera automatiquement
 
-### Étape 4 : Pousser le code
+### Étape 3 : Pousser le code
 
 ```bash
 git add .
@@ -104,7 +108,7 @@ Le workflow GitHub Actions va :
 - Builder le frontend avec l'URL du backend
 - Déployer automatiquement sur GitHub Pages
 
-### Étape 5 : Votre site est en ligne !
+### Étape 4 : Votre site est en ligne !
 
 Votre application sera accessible à :
 ```
@@ -117,16 +121,28 @@ https://votre-username.github.io/MegaMix
 
 ### Le build Koyeb échoue
 
-**Vérifiez** :
-1. Work directory est **vide** (Override désactivé)
-2. Dockerfile location = `server/Dockerfile`
-3. Variables d'environnement sont configurées
+#### Si vous utilisez Dockerfile :
+1. **Vérifiez** : Work directory est **vide** (Override désactivé)
+2. **Vérifiez** : Dockerfile location = `server/Dockerfile`
+3. **Essayez Buildpack** : Voir `SOLUTION_KOYEB_BUILDPACK.md`
 
-**Testez localement** :
+#### Si vous utilisez Buildpack :
+1. **Vérifiez** : Work directory = `server`
+2. **Vérifiez** : Build Command = `npm install && npm run build`
+3. **Vérifiez** : Run Command = `npm start`
+
+### Test Local
+
+Testez le build localement :
+
 ```bash
 cd server
-docker build -t test-megamix .
+npm install
+npm run build
+npm start
 ```
+
+Si ça fonctionne localement, le problème vient de Koyeb.
 
 ### Le frontend ne charge pas les données
 
@@ -143,17 +159,8 @@ docker build -t test-megamix .
 
 ---
 
-## 📝 Fichiers Importants
-
-- `server/Dockerfile` - Configuration Docker pour Koyeb
-- `.github/workflows/deploy.yml` - Déploiement automatique GitHub Pages
-- `server/.env` - Variables d'environnement (ne pas commiter)
-
----
-
-## 🎉 Résultat Final
+## 📝 Résultat Final
 
 ✅ **Backend** : `https://votre-app.koyeb.app`  
 ✅ **Frontend** : `https://votre-username.github.io/MegaMix`  
 ✅ **Partageable** : Partagez l'URL GitHub Pages avec vos amis !
-

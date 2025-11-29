@@ -1,45 +1,45 @@
-# Dockerfile pour déploiement sur Koyeb ou autres plateformes
+# Dockerfile pour déploiement sur Koyeb
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Installer les dépendances système nécessaires pour sharp et autres
+# Installer les dépendances système pour sharp
 RUN apk add --no-cache \
+    vips-dev \
     python3 \
     make \
     g++ \
-    vips-dev \
     libc6-compat
 
 # Copier les fichiers de configuration
-COPY package*.json ./
-COPY tsconfig.json ./
+# Note: Le contexte de build est la racine du projet, donc on copie depuis server/
+COPY server/package.json ./
+COPY server/tsconfig.json ./
 
-# Installer les dépendances (toutes, y compris devDependencies pour le build)
-RUN npm ci
+# Installer toutes les dépendances (pas de package-lock.json)
+RUN npm install
 
 # Copier le code source
-COPY src ./src
+COPY server/src ./src
 
 # Créer les dossiers nécessaires
 RUN mkdir -p data uploads/temp
 
-# Builder l'application TypeScript
+# Builder l'application
 RUN npm run build
 
-# Vérifier que le build a réussi
-RUN ls -la dist/ || (echo "Build failed - dist directory not found" && exit 1)
+# Vérifier que dist/index.js existe
+RUN test -f dist/index.js || (echo "ERREUR: Build échoué - dist/index.js introuvable" && exit 1)
 
-# Supprimer les devDependencies après le build pour réduire la taille
+# Supprimer devDependencies pour réduire la taille
 RUN npm prune --production
 
-# Exposer le port (Koyeb assignera automatiquement un port via PORT env var)
+# Exposer le port
 EXPOSE 8080
 
-# Variables d'environnement par défaut
+# Variables d'environnement
 ENV NODE_ENV=production
 ENV PORT=8080
 
 # Démarrer l'application
-CMD ["npm", "start"]
-
+CMD ["node", "dist/index.js"]
