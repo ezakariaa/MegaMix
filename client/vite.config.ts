@@ -4,6 +4,8 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Base URL pour GitHub Pages (ajustez selon le nom de votre dépôt)
+  base: process.env.NODE_ENV === 'production' ? '/MegaMix/' : '/',
   plugins: [react()],
   resolve: {
     alias: {
