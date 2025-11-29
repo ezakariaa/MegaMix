@@ -8,14 +8,15 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    vips-dev
+    vips-dev \
+    libc6-compat
 
 # Copier les fichiers de configuration
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Installer les dépendances
-RUN npm ci --only=production=false
+# Installer les dépendances (toutes, y compris devDependencies pour le build)
+RUN npm ci
 
 # Copier le code source
 COPY src ./src
@@ -23,13 +24,16 @@ COPY src ./src
 # Créer les dossiers nécessaires
 RUN mkdir -p data uploads/temp
 
-# Builder l'application
+# Builder l'application TypeScript
 RUN npm run build
 
-# Supprimer les devDependencies pour réduire la taille de l'image
+# Vérifier que le build a réussi
+RUN ls -la dist/ || (echo "Build failed - dist directory not found" && exit 1)
+
+# Supprimer les devDependencies après le build pour réduire la taille
 RUN npm prune --production
 
-# Exposer le port (Koyeb assignera automatiquement un port)
+# Exposer le port (Koyeb assignera automatiquement un port via PORT env var)
 EXPOSE 8080
 
 # Variables d'environnement par défaut
