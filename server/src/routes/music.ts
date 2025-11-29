@@ -1689,4 +1689,102 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * Route pour importer des données (albums, tracks, artists) depuis un export
+ * Utile pour synchroniser les données locales vers le backend déployé
+ */
+router.post('/import-data', async (req: Request, res: Response) => {
+  try {
+    const { albums: importedAlbums, tracks: importedTracks, artists: importedArtists } = req.body
+
+    if (!importedAlbums || !importedTracks || !importedArtists) {
+      return res.status(400).json({ 
+        error: 'Données incomplètes. Format attendu: { albums: [], tracks: [], artists: [] }' 
+      })
+    }
+
+    // Valider que ce sont bien des tableaux
+    if (!Array.isArray(importedAlbums) || !Array.isArray(importedTracks) || !Array.isArray(importedArtists)) {
+      return res.status(400).json({ 
+        error: 'Les données doivent être des tableaux' 
+      })
+    }
+
+    console.log(`[IMPORT] Import de ${importedAlbums.length} album(s), ${importedTracks.length} piste(s), ${importedArtists.length} artiste(s)`)
+
+    // Fusionner avec les données existantes (éviter les doublons)
+    const albumsMap = new Map<string, Album>()
+    const tracksMap = new Map<string, Track>()
+    const artistsMap = new Map<string, Artist>()
+
+    // Charger les données existantes
+    albums.forEach(album => albumsMap.set(album.id, album))
+    tracks.forEach(track => tracksMap.set(track.id, track))
+    artists.forEach(artist => artistsMap.set(artist.id, artist))
+
+    // Ajouter/remplacer avec les données importées
+    importedAlbums.forEach((album: Album) => {
+      albumsMap.set(album.id, album)
+    })
+    importedTracks.forEach((track: Track) => {
+      tracksMap.set(track.id, track)
+    })
+    importedArtists.forEach((artist: Artist) => {
+      artistsMap.set(artist.id, artist)
+    })
+
+    // Convertir les Maps en tableaux
+    albums = Array.from(albumsMap.values())
+    tracks = Array.from(tracksMap.values())
+    artists = Array.from(artistsMap.values())
+
+    // Sauvegarder les données
+    await saveAllData(albums, tracks, artists)
+
+    console.log(`[IMPORT] Import réussi: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+
+    res.json({
+      success: true,
+      message: 'Données importées avec succès',
+      counts: {
+        albums: albums.length,
+        tracks: tracks.length,
+        artists: artists.length
+      }
+    })
+  } catch (error: any) {
+    console.error('[IMPORT] Erreur lors de l\'import:', error)
+    res.status(500).json({ 
+      error: 'Erreur lors de l\'import des données',
+      details: error.message 
+    })
+  }
+})
+
+/**
+ * Route pour exporter toutes les données (albums, tracks, artists)
+ * Utile pour sauvegarder ou synchroniser les données
+ */
+router.get('/export-data', async (req: Request, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      albums,
+      tracks,
+      artists,
+      counts: {
+        albums: albums.length,
+        tracks: tracks.length,
+        artists: artists.length
+      }
+    })
+  } catch (error: any) {
+    console.error('[EXPORT] Erreur lors de l\'export:', error)
+    res.status(500).json({ 
+      error: 'Erreur lors de l\'export des données',
+      details: error.message 
+    })
+  }
+})
+
 export default router
