@@ -40,30 +40,56 @@ Write-Host "Fichiers trouves!" -ForegroundColor Green
 Write-Host "Lecture des fichiers locaux..." -ForegroundColor Yellow
 
 try {
+    # Lire les fichiers JSON bruts
     $albumsJson = Get-Content -Path $albumsPath -Raw -Encoding UTF8
     $tracksJson = Get-Content -Path $tracksPath -Raw -Encoding UTF8
     $artistsJson = Get-Content -Path $artistsPath -Raw -Encoding UTF8
-
-    $albums = $albumsJson | ConvertFrom-Json
-    $tracks = $tracksJson | ConvertFrom-Json
-    $artists = $artistsJson | ConvertFrom-Json
+    
+    # Parser les JSON pour valider et obtenir les objets
+    $albumsParsed = $albumsJson | ConvertFrom-Json
+    $tracksParsed = $tracksJson | ConvertFrom-Json
+    $artistsParsed = $artistsJson | ConvertFrom-Json
+    
+    # S'assurer que ce sont des tableaux
+    if ($albumsParsed -isnot [Array]) {
+        $albumsArray = @($albumsParsed)
+    } else {
+        $albumsArray = $albumsParsed
+    }
+    
+    if ($tracksParsed -isnot [Array]) {
+        $tracksArray = @($tracksParsed)
+    } else {
+        $tracksArray = $tracksParsed
+    }
+    
+    if ($artistsParsed -isnot [Array]) {
+        $artistsArray = @($artistsParsed)
+    } else {
+        $artistsArray = $artistsParsed
+    }
+    
+    Write-Host "Fichiers lus:" -ForegroundColor Green
+    Write-Host "   - Albums: $($albumsArray.Count)" -ForegroundColor White
+    Write-Host "   - Tracks: $($tracksArray.Count)" -ForegroundColor White
+    Write-Host "   - Artists: $($artistsArray.Count)" -ForegroundColor White
+    
+    # Creer le payload en construisant manuellement le JSON pour garantir la structure
+    # Cela evite les problemes de serialisation PowerShell
+    $payloadJson = @"
+{
+  "albums": $albumsJson,
+  "tracks": $tracksJson,
+  "artists": $artistsJson
+}
+"@
+    
+    $payload = $payloadJson
 } catch {
     Write-Host "Erreur lors de la lecture des fichiers JSON:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     exit 1
 }
-
-Write-Host "Fichiers lus:" -ForegroundColor Green
-Write-Host "   - Albums: $($albums.Count)" -ForegroundColor White
-Write-Host "   - Tracks: $($tracks.Count)" -ForegroundColor White
-Write-Host "   - Artists: $($artists.Count)" -ForegroundColor White
-
-# Creer le payload
-$payload = @{
-    albums = $albums
-    tracks = $tracks
-    artists = $artists
-} | ConvertTo-Json -Depth 10 -Compress
 
 # URL du backend Koyeb
 $url = "https://effective-donni-opticode-1865a644.koyeb.app/api/music/import-data"
@@ -71,7 +97,8 @@ $url = "https://effective-donni-opticode-1865a644.koyeb.app/api/music/import-dat
 Write-Host "Envoi vers Koyeb..." -ForegroundColor Yellow
 
 try {
-    $response = Invoke-RestMethod -Uri $url -Method Post -Body $payload -ContentType "application/json; charset=utf-8"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+    $response = Invoke-RestMethod -Uri $url -Method Post -Body $bytes -ContentType "application/json; charset=utf-8"
     
     Write-Host "Import reussi !" -ForegroundColor Green
     Write-Host "   Message: $($response.message)" -ForegroundColor White

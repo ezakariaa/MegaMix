@@ -37,10 +37,16 @@ npm run dev
 2. **Synchronisation automatique** : Immédiatement après, les données sont envoyées à Koyeb en arrière-plan
 3. **Pas de blocage** : La synchronisation ne bloque pas l'ajout local, même en cas d'erreur
 
+### Lors de la suppression d'un album
+
+1. **Suppression locale** : L'album est supprimé de votre bibliothèque locale
+2. **Synchronisation automatique** : Immédiatement après, l'état complet des données (sans l'album supprimé) est envoyé à Koyeb en arrière-plan
+3. **Pas de blocage** : La synchronisation ne bloque pas la suppression locale, même en cas d'erreur
+
 ### Comportement
 
-- ✅ **Si Koyeb est accessible** : Les données sont synchronisées automatiquement
-- ⚠️ **Si Koyeb n'est pas accessible** : L'ajout local fonctionne quand même, l'erreur est seulement loggée
+- ✅ **Si Koyeb est accessible** : Les données sont synchronisées automatiquement (ajout ET suppression)
+- ⚠️ **Si Koyeb n'est pas accessible** : Les opérations locales fonctionnent quand même, l'erreur est seulement loggée
 - 🔄 **Mode production sur Koyeb** : La synchronisation est automatiquement désactivée pour éviter les boucles
 
 ## 📝 Logs
@@ -75,11 +81,16 @@ Ou commentez la ligne dans votre `.env` :
 ## ✅ Avantages
 
 - **Synchronisation automatique** : Plus besoin d'exécuter le script `import-data.ps1` manuellement
-- **Transparent** : Fonctionne en arrière-plan sans bloquer l'ajout local
-- **Robuste** : Les erreurs de synchronisation n'affectent pas l'ajout local
+- **Ajout ET suppression synchronisés** : Toutes les modifications locales sont automatiquement reflétées sur Koyeb
+- **Transparent** : Fonctionne en arrière-plan sans bloquer les opérations locales
+- **Robuste** : Les erreurs de synchronisation n'affectent pas les opérations locales
 - **Performant** : La synchronisation est asynchrone et ne ralentit pas l'interface
 
 ## 🚀 Utilisation
 
-Une fois configuré, ajoutez simplement un album depuis Google Drive comme d'habitude. La synchronisation se fera automatiquement !
+Une fois configuré :
+- **Ajoutez** un album depuis Google Drive → Il sera automatiquement synchronisé avec Koyeb
+- **Supprimez** un album en local → Il sera automatiquement supprimé sur Koyeb
+
+Tout se fait automatiquement en arrière-plan !
 

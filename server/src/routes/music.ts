@@ -409,6 +409,11 @@ router.delete('/albums', async (req: Request, res: Response) => {
     // Sauvegarder les données
     await saveAllData(albums, tracks, artists)
     console.log('[PERSISTENCE] Données sauvegardées après suppression d\'albums.')
+    
+    // Synchroniser avec Koyeb en arrière-plan (ne pas bloquer la réponse)
+    syncToKoyeb(albums, tracks, artists).catch((error) => {
+      console.error('[SYNC KOYEB] Erreur lors de la synchronisation après suppression d\'albums:', error)
+    })
 
     res.json({
       success: true,
