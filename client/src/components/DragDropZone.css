@@ -1,0 +1,86 @@
+.drag-drop-zone {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+
+.drag-drop-zone.dragging {
+  pointer-events: none;
+}
+
+.drag-overlay,
+.processing-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.drag-message,
+.processing-message {
+  text-align: center;
+  color: #ffffff;
+  padding: 48px;
+  background-color: var(--spotify-dark-gray);
+  border-radius: 16px;
+  border: 2px dashed var(--spotify-green);
+  max-width: 500px;
+}
+
+.drag-message i {
+  font-size: 4rem;
+  color: var(--spotify-green);
+  margin-bottom: 24px;
+  display: block;
+}
+
+.drag-message h3 {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.drag-message p {
+  color: var(--spotify-light-gray);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.processing-message .spinner-border {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 16px;
+}
+
+.processing-message p {
+  color: #ffffff;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.folder-select-button {
+  background-color: var(--spotify-green);
+  border: none;
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 24px;
+  transition: all 0.2s ease;
+}
+
+.folder-select-button:hover {
+  background-color: var(--spotify-green-hover);
+  transform: scale(1.05);
+}
+
+.folder-select-button:disabled {
+  background-color: var(--spotify-green);
+  opacity: 0.7;
+}

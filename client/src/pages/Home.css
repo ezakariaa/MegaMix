@@ -1,0 +1,215 @@
+.home-page {
+  padding: 0;
+}
+
+.page-title {
+  color: #ffffff;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.text-muted {
+  color: var(--spotify-light-gray) !important;
+}
+
+/* Cards style Spotify avec bordures arrondies */
+.spotify-card {
+  background-color: var(--spotify-dark-gray) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.spotify-card:hover {
+  background-color: var(--spotify-gray) !important;
+  transform: translateY(-4px);
+}
+
+.spotify-card .card-title {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.spotify-card .card-text {
+  color: var(--spotify-light-gray);
+}
+
+.section-title {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.drag-drop-instruction {
+  color: var(--spotify-light-gray) !important;
+  font-size: 1rem;
+  margin-top: 8px;
+  margin-bottom: 0;
+  opacity: 1 !important;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.filter-dropdown {
+  background-color: var(--spotify-dark-gray) !important;
+  border: 1px solid var(--spotify-gray) !important;
+  color: #ffffff !important;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.filter-dropdown:hover,
+.filter-dropdown:focus {
+  background-color: var(--spotify-gray) !important;
+  border-color: var(--spotify-green) !important;
+  color: #ffffff !important;
+  transform: scale(1.02);
+}
+
+.filter-dropdown:active {
+  background-color: var(--spotify-gray) !important;
+  border-color: var(--spotify-green) !important;
+  color: #ffffff !important;
+}
+
+.filter-dropdown::after {
+  margin-left: 8px;
+}
+
+/* Style pour le menu déroulant */
+.dropdown-menu {
+  background-color: var(--spotify-dark-gray) !important;
+  border: 1px solid var(--spotify-gray) !important;
+  border-radius: 8px;
+  padding: 4px;
+  margin-top: 8px;
+}
+
+.dropdown-item {
+  color: var(--spotify-light-gray) !important;
+  padding: 10px 16px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-item:hover {
+  background-color: var(--spotify-gray) !important;
+  color: #ffffff !important;
+}
+
+.dropdown-item.active {
+  background-color: var(--spotify-green) !important;
+  color: #000000 !important;
+  font-weight: 600;
+}
+
+.dropdown-item i {
+  width: 20px;
+  text-align: center;
+}
+
+.selection-button,
+.delete-button,
+.google-drive-button {
+  background-color: var(--spotify-dark-gray);
+  border: 1px solid var(--spotify-gray);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.google-drive-button:hover {
+  background-color: var(--spotify-gray);
+  border-color: var(--spotify-green);
+  color: var(--spotify-green);
+  transform: scale(1.05);
+}
+
+.selection-button:active,
+.delete-button:active,
+.selection-button.active {
+  background-color: var(--spotify-green);
+  color: #000000;
+}
+
+.delete-button {
+  background-color: #dc3545;
+  color: #ffffff;
+}
+
+.delete-button:hover {
+  background-color: #c82333;
+}
+
+.selection-button:active,
+.delete-button:active,
+.google-drive-button:active {
+  transform: scale(0.95);
+}
+
+/* Style pour le modal Google Drive */
+.modal-content {
+  background-color: var(--spotify-dark-gray);
+  border: 1px solid var(--spotify-gray);
+  color: #ffffff;
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--spotify-gray);
+}
+
+.modal-title {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.modal-body {
+  color: var(--spotify-light-gray);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--spotify-gray);
+}
+
+.form-label {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.form-control {
+  background-color: var(--spotify-gray);
+  border: 1px solid var(--spotify-gray);
+  color: #ffffff;
+}
+
+.form-control:focus {
+  background-color: var(--spotify-gray);
+  border-color: var(--spotify-green);
+  color: #ffffff;
+  box-shadow: 0 0 0 0.2rem rgba(29, 185, 84, 0.25);
+}
+
+.form-control::placeholder {
+  color: var(--spotify-light-gray);
+  opacity: 0.7;
+}
+
+.btn-close {
+  filter: invert(1);
+}

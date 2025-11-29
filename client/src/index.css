@@ -1,0 +1,44 @@
+:root {
+  /* Couleurs Spotify */
+  --spotify-green: #f1c40f;
+  --spotify-green-hover: #d4a80d;
+  --spotify-black: #000000;
+  --spotify-dark: #121212;
+  --spotify-dark-gray: #181818;
+  --spotify-gray: #282828;
+  --spotify-light-gray: #b3b3b3;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  
+  /* Couleurs héritées (pour compatibilité) */
+  --primary-color: #f1c40f;
+  --secondary-color: #d4a80d;
+  --background-dark: #121212;
+  --background-light: #181818;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--spotify-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+#root {
+  min-height: 100vh;
+}

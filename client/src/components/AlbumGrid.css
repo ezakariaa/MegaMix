@@ -1,0 +1,177 @@
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.album-card {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.album-card:hover {
+  transform: translateY(-4px);
+}
+
+.album-card.selected {
+  opacity: 0.7;
+  border: 2px solid var(--spotify-green);
+  border-radius: 8px;
+}
+
+.album-cover-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--spotify-gray);
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.album-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--spotify-gray) 0%, var(--spotify-dark-gray) 100%);
+  color: var(--spotify-light-gray);
+}
+
+.album-cover-placeholder i {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+.album-checkbox-container {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}
+
+.album-checkbox {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: var(--spotify-green);
+}
+
+.album-cover-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none; /* Permet de cliquer à travers l'overlay */
+}
+
+.album-card:hover .album-cover-overlay {
+  opacity: 1;
+}
+
+.album-play-button-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--spotify-green);
+  border: none;
+  color: #000000;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.4);
+  pointer-events: auto; /* Permet de cliquer sur le bouton */
+  z-index: 10;
+}
+
+.album-play-button-overlay:hover {
+  transform: scale(1.1);
+  background-color: var(--spotify-green-hover);
+}
+
+.album-play-button-overlay:active {
+  transform: scale(0.95);
+}
+
+.album-info {
+  text-align: left;
+}
+
+.album-title {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-artist {
+  color: var(--spotify-light-gray);
+  font-size: 0.875rem;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-year,
+.album-track-count {
+  color: var(--spotify-light-gray);
+  font-size: 0.75rem;
+  margin: 2px 0;
+  opacity: 0.7;
+}
+
+.album-grid-empty {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--spotify-light-gray);
+}
+
+.album-grid-empty i {
+  font-size: 4rem;
+  color: var(--spotify-gray);
+  margin-bottom: 24px;
+  opacity: 0.5;
+  display: block;
+}
+
+.album-grid-empty p {
+  font-size: 1.1rem;
+  margin: 8px 0;
+}
+
+.album-grid-empty .text-muted {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .album-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    padding: 16px 0;
+  }
+}

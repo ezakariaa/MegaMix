@@ -1,0 +1,66 @@
+/* Style Spotify - Header noir avec vert accent */
+.spotify-navbar {
+  background-color: #000000 !important;
+  border-bottom: 1px solid #282828;
+  padding: 0;
+  min-height: 50px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.navbar-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px; /* Aligné avec la sidebar : 8px (sidebar padding) + 16px (sidebar-item padding) = 24px */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  min-height: 50px;
+}
+
+/* Logo à gauche */
+.navbar-brand {
+  font-size: 1.3rem !important;
+  color: #ffffff !important;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.navbar-brand i {
+  color: #f1c40f;
+  font-size: 1.5rem;
+}
+
+.navbar-brand:hover {
+  color: #ffffff !important;
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+.navbar-brand strong {
+  background: linear-gradient(135deg, #f1c40f 0%, #d4a80d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .navbar-container {
+    padding: 0 16px;
+  }
+
+  .navbar-brand {
+    font-size: 1.2rem !important;
+  }
+
+  .navbar-brand i {
+    font-size: 1.3rem;
+  }
+}
