@@ -7,11 +7,25 @@ Guide complet pour déployer MegaMix en production.
 ## 📋 Architecture
 
 - **Frontend** : GitHub Pages (gratuit)
-- **Backend** : Koyeb (gratuit, sans carte bancaire)
+- **Backend** : Railway (recommandé) ou Koyeb (gratuit, sans carte bancaire)
+
+> ⚠️ **Note** : Railway est recommandé car le service reste toujours actif. Pour migrer depuis Koyeb, consultez `MIGRATION_RAILWAY.md`.
 
 ---
 
-## 🎯 Partie 1 : Déployer le Backend sur Koyeb
+## 🚂 Option 1 : Déployer sur Railway (Recommandé) ⭐
+
+**Avantages** : Service toujours actif, persistance des données, 500h/mois gratuites
+
+Consultez le guide complet : **[MIGRATION_RAILWAY.md](MIGRATION_RAILWAY.md)**
+
+---
+
+## 🎯 Option 2 : Déployer sur Koyeb
+
+---
+
+## 🎯 Partie 1 : Déployer le Backend sur Koyeb (Alternative)
 
 ### Étape 1 : Créer un compte Koyeb
 
@@ -161,6 +175,26 @@ Si ça fonctionne localement, le problème vient de Koyeb.
 
 ## 📝 Résultat Final
 
+### Avec Railway (Recommandé)
+✅ **Backend** : `https://votre-app.up.railway.app`  
+✅ **Frontend** : `https://votre-username.github.io/MegaMix`  
+✅ **Service toujours actif** : Plus de problème d'inactivité !
+
+### Avec Koyeb (Alternative)
 ✅ **Backend** : `https://votre-app.koyeb.app`  
 ✅ **Frontend** : `https://votre-username.github.io/MegaMix`  
-✅ **Partageable** : Partagez l'URL GitHub Pages avec vos amis !
+⚠️ **Note** : Le service peut s'arrêter après inactivité sur le plan gratuit
+
+---
+
+## 🔄 Migration depuis Koyeb vers Railway
+
+Si vous utilisez actuellement Koyeb et souhaitez migrer vers Railway (recommandé) :
+
+Consultez le guide complet : **[MIGRATION_RAILWAY.md](MIGRATION_RAILWAY.md)**
+
+Les avantages de Railway :
+- ✅ Service toujours actif (ne s'arrête jamais)
+- ✅ Persistance des données (volumes persistants)
+- ✅ 500 heures gratuites par mois (suffisant pour 24/7)
+- ✅ $5 de crédit gratuit au démarrage

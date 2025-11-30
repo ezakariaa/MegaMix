@@ -14,8 +14,8 @@
 
 /* Section centrale - Contenu principal */
 .main-content {
-  width: 60%;
-  margin-left: 20%;
+  width: 65%; /* Ajusté pour sidebar gauche réduite (15% sidebar + 20% right = 35%, donc 65% pour le contenu) */
+  margin-left: 15%; /* Ajusté pour sidebar gauche réduite */
   min-height: calc(100vh - 50px - 90px);
   padding: 32px;
   padding-bottom: 16px; /* Espace supplémentaire en bas */
@@ -28,7 +28,7 @@
 
 /* Ajustement quand la sidebar est réduite */
 body.sidebar-collapsed .main-content {
-  width: calc(100% - 70px - 20%);
+  width: calc(100% - 70px - 20%); /* Ajusté pour right sidebar 20% */
   margin-left: 70px;
 }
 
@@ -61,24 +61,24 @@ body.sidebar-collapsed .main-content {
 /* Responsive */
 @media (max-width: 1400px) {
   .main-content {
-    width: 55%;
-    margin-left: 22.5%;
+    width: 66%;
+    margin-left: 15%;
   }
 
   body.sidebar-collapsed .main-content {
-    width: calc(100% - 70px - 22.5%);
+    width: calc(100% - 70px - 20%);
     margin-left: 70px;
   }
 }
 
 @media (max-width: 1200px) {
   .main-content {
-    width: 50%;
-    margin-left: 25%;
+    width: 67%;
+    margin-left: 15%;
   }
 
   body.sidebar-collapsed .main-content {
-    width: calc(100% - 70px - 25%);
+    width: calc(100% - 70px - 18%);
     margin-left: 70px;
   }
 }

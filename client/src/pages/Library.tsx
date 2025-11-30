@@ -296,9 +296,6 @@ function Library() {
                   </Dropdown>
                 </div>
               </div>
-              <p className="drag-drop-instruction">
-                Glissez un dossier de musique ici ou sélectionnez un dossier pour ajouter vos albums
-              </p>
             </div>
 
             {/* Modal Google Drive */}

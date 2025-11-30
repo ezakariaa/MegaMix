@@ -1,4 +1,4 @@
-/* Style Spotify - Header noir avec vert accent */
+/* Navbar principale */
 .spotify-navbar {
   background-color: #000000 !important;
   border-bottom: 1px solid #282828;
@@ -11,17 +11,21 @@
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 24px; /* Aligné avec la sidebar : 8px (sidebar padding) + 16px (sidebar-item padding) = 24px */
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
-  justify-content: flex-start;
-  position: relative;
   min-height: 50px;
 }
 
-/* Logo à gauche */
+/* Section gauche - Logo */
+.navbar-left {
+  display: flex;
+  align-items: center;
+  padding-left: 0;
+}
+
 .navbar-brand {
-  font-size: 1.3rem !important;
+  font-size: 1.5rem !important;
   color: #ffffff !important;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-weight: 700;
@@ -38,7 +42,6 @@
 }
 
 .navbar-brand:hover {
-  color: #ffffff !important;
   transform: scale(1.05);
   transition: transform 0.2s ease;
 }
@@ -50,7 +53,7 @@
   background-clip: text;
 }
 
-/* Bouton hamburger pour mobile */
+/* Bouton hamburger mobile */
 .navbar-menu-toggle {
   display: none;
   background: none;
@@ -67,20 +70,162 @@
   color: var(--spotify-green);
 }
 
+/* Section centre - Recherche */
+.navbar-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.navbar-search {
+  width: 100%;
+  max-width: 600px;
+}
+
+.navbar-search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: var(--spotify-dark-gray);
+  border-radius: 20px;
+  padding: 4px 12px;
+  height: 32px;
+  transition: background-color 0.2s ease;
+}
+
+.navbar-search-container:focus-within {
+  background-color: #2a2a2a;
+  box-shadow: 0 0 0 2px rgba(241, 196, 15, 0.3);
+}
+
+.navbar-search-icon {
+  color: var(--spotify-light-gray);
+  font-size: 0.9rem;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.navbar-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 400;
+  outline: none;
+  padding: 0;
+  height: 100%;
+}
+
+.navbar-search-input::placeholder {
+  color: var(--spotify-light-gray);
+  opacity: 0.7;
+}
+
+.navbar-search-clear {
+  background: none;
+  border: none;
+  color: var(--spotify-light-gray);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+.navbar-search-clear:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Section droite - Connexion */
+.navbar-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 0;
+}
+
+.navbar-login-btn {
+  display: flex;
+  align-items: center;
+  background-color: transparent;
+  border: 1px solid #f1c40f;
+  color: #f1c40f;
+  padding: 0 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  height: 32px; /* Même hauteur que la barre de recherche */
+}
+
+.navbar-login-btn:hover {
+  background-color: #f1c40f;
+  border-color: #f1c40f;
+  color: #000000;
+  transform: scale(1.05);
+}
+
+.navbar-login-btn i {
+  font-size: 1.2rem;
+  color: #f1c40f;
+}
+
+.navbar-login-btn:hover i {
+  color: #000000;
+}
+
+.navbar-login-text {
+  display: inline;
+}
+
 /* Responsive */
 @media (max-width: 992px) {
+  .navbar-container {
+    grid-template-columns: auto 1fr auto;
+  }
+
   .navbar-menu-toggle {
     display: block;
+  }
+
+  .navbar-search {
+    max-width: 100%;
+  }
+
+  .navbar-login-text {
+    display: none;
+  }
+
+  .navbar-login-btn {
+    padding: 0 12px;
+    height: 28px; /* Même hauteur que la barre de recherche sur tablette */
+  }
+
+  .navbar-left {
+    padding-left: 0;
+  }
+
+  .navbar-right {
+    padding-right: 0;
   }
 }
 
 @media (max-width: 768px) {
   .navbar-container {
-    padding: 0 16px;
+    gap: 8px;
   }
 
   .navbar-brand {
-    font-size: 1.1rem !important;
+    font-size: 1.3rem !important;
   }
 
   .navbar-brand i {
@@ -91,14 +236,87 @@
     font-size: 1.3rem;
     margin-right: 12px;
   }
+
+  .navbar-search-container {
+    height: 28px;
+    padding: 3px 10px;
+  }
+
+  .navbar-search-input {
+    font-size: 0.8rem;
+  }
+
+  .navbar-search-input::placeholder {
+    font-size: 0.75rem;
+  }
+
+  .navbar-search-icon {
+    font-size: 0.85rem;
+    margin-right: 6px;
+  }
+
+  .navbar-login-btn {
+    padding: 0 10px;
+    font-size: 0.85rem;
+    height: 28px; /* Même hauteur que la barre de recherche sur mobile */
+  }
+
+  .navbar-left {
+    padding-left: 0;
+  }
+
+  .navbar-right {
+    padding-right: 0;
+  }
 }
 
 @media (max-width: 480px) {
+  .navbar-container {
+    gap: 6px;
+  }
+
   .navbar-brand {
-    font-size: 1rem !important;
+    font-size: 1.2rem !important;
   }
 
   .navbar-brand i {
     font-size: 1.1rem;
+  }
+
+  .navbar-search-container {
+    height: 26px;
+    padding: 2px 8px;
+  }
+
+  .navbar-search-input {
+    font-size: 0.75rem;
+  }
+
+  .navbar-search-input::placeholder {
+    font-size: 0.7rem;
+  }
+
+  .navbar-search-icon {
+    font-size: 0.8rem;
+    margin-right: 4px;
+  }
+
+  .navbar-login-btn {
+    padding: 0 8px;
+    font-size: 0.8rem;
+    height: 26px; /* Même hauteur que la barre de recherche sur petit mobile */
+  }
+
+  .navbar-login-btn i {
+    font-size: 1.1rem;
+    margin-right: 0;
+  }
+
+  .navbar-left {
+    padding-left: 0;
+  }
+
+  .navbar-right {
+    padding-right: 0;
   }
 }

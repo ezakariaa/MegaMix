@@ -220,6 +220,120 @@
   filter: invert(1);
 }
 
+/* Sections défilables - une seule ligne horizontale */
+.scrollable-albums .album-grid {
+  display: flex !important;
+  flex-direction: row !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 16px;
+  padding: 24px 0;
+  scrollbar-width: none; /* Masquer la barre de défilement par défaut (Firefox) */
+  -ms-overflow-style: none; /* Masquer la barre de défilement (IE/Edge) */
+  grid-template-columns: none !important;
+  scroll-behavior: smooth;
+  /* Permet le défilement avec la molette de la souris */
+  -webkit-overflow-scrolling: touch;
+  /* Support du glisser-déposer pour le défilement */
+  cursor: grab;
+  user-select: none;
+}
+
+/* Masquer la barre de défilement par défaut (Chrome/Safari) */
+.scrollable-albums .album-grid::-webkit-scrollbar {
+  display: none;
+}
+
+/* Afficher la barre de défilement au survol */
+.scrollable-albums .album-grid:hover::-webkit-scrollbar {
+  display: block;
+  height: 8px;
+}
+
+.scrollable-albums .album-grid:hover {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--spotify-gray) var(--spotify-dark);
+}
+
+.scrollable-albums .album-grid:hover::-webkit-scrollbar-track {
+  background: var(--spotify-dark);
+  border-radius: 4px;
+}
+
+.scrollable-albums .album-grid:hover::-webkit-scrollbar-thumb {
+  background: var(--spotify-gray);
+  border-radius: 4px;
+}
+
+.scrollable-albums .album-grid:hover::-webkit-scrollbar-thumb:hover {
+  background: #3e3e3e;
+}
+
+.scrollable-albums .album-grid.active {
+  cursor: grabbing;
+}
+
+.scrollable-albums .album-grid.active .album-card {
+  pointer-events: none;
+}
+
+/* Afficher la barre de défilement pendant le défilement actif */
+.scrollable-albums .album-grid.active::-webkit-scrollbar {
+  display: block;
+  height: 8px;
+}
+
+.scrollable-albums .album-grid.active {
+  scrollbar-width: thin;
+  scrollbar-color: var(--spotify-gray) var(--spotify-dark);
+}
+
+.scrollable-albums .album-grid.active::-webkit-scrollbar-track {
+  background: var(--spotify-dark);
+  border-radius: 4px;
+}
+
+.scrollable-albums .album-grid.active::-webkit-scrollbar-thumb {
+  background: var(--spotify-gray);
+  border-radius: 4px;
+}
+
+.scrollable-albums .album-card {
+  flex: 0 0 auto !important;
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  user-select: none; /* Empêche la sélection de texte lors du glisser */
+}
+
+.scrollable-albums .album-cover-container {
+  width: 100%;
+  aspect-ratio: 1;
+  pointer-events: auto; /* Permet les interactions sur les couvertures */
+}
+
+/* Responsive pour sections défilables */
+@media (max-width: 768px) {
+  .scrollable-albums .album-card {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .scrollable-albums .album-card {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+  
+  .scrollable-albums .album-grid {
+    gap: 12px;
+    padding: 20px 0;
+  }
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .page-title {

@@ -110,7 +110,7 @@ function RightSidebar() {
 
         {/* Bannière de l'artiste */}
         {currentTrack && artist && (
-          <div className="right-sidebar-section">
+          <div className="right-sidebar-section right-sidebar-section-artist">
             <div className="artist-banner">
               {/* Image bannière avec overlay */}
               <div className="artist-banner-image-container">

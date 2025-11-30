@@ -1,5 +1,5 @@
 .sidebar {
-  width: 20%;
+  width: 15%; /* Largeur réduite de 20% à 15% */
   height: calc(100vh - 50px - 90px); /* Hauteur moins navbar et footer */
   background-color: var(--spotify-black);
   position: fixed;
