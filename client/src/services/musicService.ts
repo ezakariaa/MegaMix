@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getCached, setCached, removeCached } from './cacheService'
 
 // Utiliser la variable d'environnement VITE_API_URL si définie, sinon utiliser localhost par défaut
 // Construire l'URL de base de l'API en ajoutant /api si nécessaire
@@ -105,7 +106,16 @@ export async function scanMusicFiles(
         timeout: 300000, // 5 minutes
       }
     )
-    return response.data
+    const result = response.data
+    
+    // Invalider le cache après ajout
+    if (result.success) {
+      removeCached('albums')
+      removeCached('artists')
+      removeCached('genres')
+    }
+    
+    return result
   } catch (error: any) {
     console.error('Erreur lors du scan des fichiers:', error)
     
@@ -127,15 +137,42 @@ export async function scanMusicFiles(
 }
 
 /**
- * Récupère tous les albums
+ * Récupère tous les albums avec cache
  */
-export async function getAlbums(): Promise<Album[]> {
+export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
+  // Vérifier le cache d'abord
+  if (useCache) {
+    const cached = getCached<Album[]>('albums')
+    if (cached) {
+      // Retourner les données en cache immédiatement
+      // Puis rafraîchir en arrière-plan
+      refreshAlbumsInBackground()
+      return cached
+    }
+  }
+
   try {
     const response = await axios.get<{ albums: Album[] }>(`${API_BASE_URL}/music/albums`, {
-      timeout: 5000,
+      timeout: 10000, // Augmenté à 10 secondes pour Railway
     })
-    return response.data.albums
+    const albums = response.data.albums
+    
+    // Mettre en cache
+    if (useCache) {
+      setCached('albums', albums)
+    }
+    
+    return albums
   } catch (error: any) {
+    // Si erreur réseau, essayer de retourner le cache même expiré
+    if (useCache) {
+      const cached = getCached<Album[]>('albums')
+      if (cached) {
+        console.warn('Utilisation du cache en raison d\'une erreur réseau')
+        return cached
+      }
+    }
+    
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
       console.warn('Serveur backend non disponible:', error.message)
@@ -147,16 +184,94 @@ export async function getAlbums(): Promise<Album[]> {
 }
 
 /**
- * Récupère les pistes d'un album
+ * Rafraîchit les albums en arrière-plan et met à jour le cache
  */
-export async function getAlbumTracks(albumId: string): Promise<Track[]> {
+async function refreshAlbumsInBackground(): Promise<void> {
+  try {
+    const response = await axios.get<{ albums: Album[] }>(`${API_BASE_URL}/music/albums`, {
+      timeout: 10000,
+    })
+    setCached('albums', response.data.albums)
+  } catch (error) {
+    // Ignorer les erreurs en arrière-plan
+    console.debug('Erreur lors du rafraîchissement en arrière-plan:', error)
+  }
+}
+
+/**
+ * Rafraîchit les pistes d'un album en arrière-plan
+ */
+async function refreshAlbumTracksInBackground(albumId: string, cacheKey: string): Promise<void> {
   try {
     const response = await axios.get<{ tracks: Track[] }>(
       `${API_BASE_URL}/music/albums/${albumId}/tracks`,
-      { timeout: 5000 }
+      { timeout: 10000 }
     )
-    return response.data.tracks
+    setCached(cacheKey, response.data.tracks)
+  } catch (error) {
+    // Ignorer les erreurs en arrière-plan
+    console.debug('Erreur lors du rafraîchissement des pistes en arrière-plan:', error)
+  }
+}
+
+/**
+ * Rafraîchit les artistes en arrière-plan
+ */
+async function refreshArtistsInBackground(): Promise<void> {
+  try {
+    const response = await axios.get<{ artists: Artist[] }>(`${API_BASE_URL}/music/artists`, {
+      timeout: 10000,
+    })
+    setCached('artists', response.data.artists)
+  } catch (error) {
+    console.debug('Erreur lors du rafraîchissement des artistes en arrière-plan:', error)
+  }
+}
+
+/**
+ * Rafraîchit les genres en arrière-plan
+ */
+async function refreshGenresInBackground(): Promise<void> {
+  try {
+    const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
+      timeout: 10000,
+    })
+    setCached('genres', response.data.genres)
+  } catch (error) {
+    console.debug('Erreur lors du rafraîchissement des genres en arrière-plan:', error)
+  }
+}
+
+/**
+ * Récupère les pistes d'un album
+ */
+export async function getAlbumTracks(albumId: string): Promise<Track[]> {
+  // Vérifier le cache d'abord
+  const cacheKey = `album_tracks_${albumId}`
+  const cached = getCached<Track[]>(cacheKey)
+  if (cached) {
+    // Rafraîchir en arrière-plan
+    refreshAlbumTracksInBackground(albumId, cacheKey)
+    return cached
+  }
+
+  try {
+    const response = await axios.get<{ tracks: Track[] }>(
+      `${API_BASE_URL}/music/albums/${albumId}/tracks`,
+      { timeout: 10000 } // Augmenté à 10 secondes
+    )
+    const tracks = response.data.tracks
+    
+    // Mettre en cache
+    setCached(cacheKey, tracks)
+    
+    return tracks
   } catch (error: any) {
+    // Si erreur, essayer le cache même expiré
+    const cached = getCached<Track[]>(cacheKey)
+    if (cached) {
+      return cached
+    }
     console.error('Erreur lors de la récupération des pistes:', error)
     return []
   }
@@ -166,12 +281,29 @@ export async function getAlbumTracks(albumId: string): Promise<Track[]> {
  * Récupère tous les artistes
  */
 export async function getArtists(): Promise<Artist[]> {
+  // Vérifier le cache d'abord
+  const cached = getCached<Artist[]>('artists')
+  if (cached) {
+    refreshArtistsInBackground()
+    return cached
+  }
+
   try {
     const response = await axios.get<{ artists: Artist[] }>(`${API_BASE_URL}/music/artists`, {
-      timeout: 5000,
+      timeout: 10000, // Augmenté à 10 secondes
     })
-    return response.data.artists
+    const artists = response.data.artists
+    
+    // Mettre en cache
+    setCached('artists', artists)
+    
+    return artists
   } catch (error: any) {
+    // Si erreur, essayer le cache même expiré
+    const cached = getCached<Artist[]>('artists')
+    if (cached) {
+      return cached
+    }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
       console.warn('Serveur backend non disponible:', error.message)
@@ -199,9 +331,18 @@ export async function getArtistAlbums(artistId: string): Promise<Album[]> {
  * Récupère les détails d'un artiste par ID
  */
 export async function getArtistById(artistId: string): Promise<Artist | null> {
+  // Vérifier le cache d'abord (via la liste complète des artistes)
+  const cachedArtists = getCached<Artist[]>('artists')
+  if (cachedArtists) {
+    const artist = cachedArtists.find(a => a.id === artistId)
+    if (artist) {
+      return artist
+    }
+  }
+
   try {
     const response = await axios.get<Artist>(`${API_BASE_URL}/music/artists/${artistId}`, {
-      timeout: 5000,
+      timeout: 10000, // Augmenté à 10 secondes
     })
     return response.data
   } catch (error: any) {
@@ -218,12 +359,29 @@ export async function getArtistById(artistId: string): Promise<Artist | null> {
  * Récupère tous les genres
  */
 export async function getGenres(): Promise<Genre[]> {
+  // Vérifier le cache d'abord
+  const cached = getCached<Genre[]>('genres')
+  if (cached) {
+    refreshGenresInBackground()
+    return cached
+  }
+
   try {
     const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
-      timeout: 5000,
+      timeout: 10000, // Augmenté à 10 secondes
     })
-    return response.data.genres
+    const genres = response.data.genres
+    
+    // Mettre en cache
+    setCached('genres', genres)
+    
+    return genres
   } catch (error: any) {
+    // Si erreur, essayer le cache même expiré
+    const cached = getCached<Genre[]>('genres')
+    if (cached) {
+      return cached
+    }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
       console.warn('Serveur backend non disponible:', error.message)
@@ -268,6 +426,15 @@ export async function deleteAlbums(albumIds: string[]): Promise<void> {
     if (!response.data.success) {
       throw new Error(response.data.error || 'Erreur lors de la suppression des albums')
     }
+    
+    // Invalider le cache après suppression
+    removeCached('albums')
+    removeCached('artists')
+    removeCached('genres')
+    // Invalider aussi les caches des pistes des albums supprimés
+    albumIds.forEach(albumId => {
+      removeCached(`album_tracks_${albumId}`)
+    })
   } catch (error: any) {
     console.error('Erreur lors de la suppression des albums:', error)
     throw new Error(error.response?.data?.error || error.message || 'Erreur lors de la suppression des albums')
@@ -284,6 +451,14 @@ export async function addMusicFromGoogleDrive(url: string): Promise<GoogleDriveA
       { url },
       { timeout: 300000 } // 5 minutes pour le téléchargement
     )
+    
+    // Invalider le cache après ajout
+    if (response.data.success) {
+      removeCached('albums')
+      removeCached('artists')
+      removeCached('genres')
+    }
+    
     return response.data
   } catch (error: any) {
     console.error('Erreur lors de l\'ajout depuis Google Drive:', error)

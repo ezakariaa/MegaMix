@@ -25,12 +25,19 @@ function Library() {
     loadAlbums()
   }, [])
 
-  const loadAlbums = async () => {
+  const loadAlbums = async (showLoading: boolean = false) => {
+    if (showLoading) {
+      setLoading(true)
+    }
     try {
       const loadedAlbums = await getAlbums()
       setAlbums(loadedAlbums)
     } catch (error) {
       console.error('Erreur lors du chargement des albums:', error)
+    } finally {
+      if (showLoading) {
+        setLoading(false)
+      }
     }
   }
 
