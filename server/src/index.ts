@@ -57,9 +57,11 @@ app.get('/api/playlists', (req, res) => {
 })
 
 // Démarrage du serveur
-app.listen(PORT, () => {
+// Écouter sur 0.0.0.0 pour être accessible depuis Railway
+const HOST = process.env.HOST || '0.0.0.0'
+app.listen(PORT, HOST, () => {
   console.log(`🚀 Serveur MuZak démarré sur le port ${PORT}`)
-  console.log(`📍 URL: http://localhost:${PORT}`)
+  console.log(`📍 URL: http://${HOST}:${PORT}`)
   
   // Vérifier la configuration de la clé API Google Drive
   if (process.env.GOOGLE_API_KEY) {
