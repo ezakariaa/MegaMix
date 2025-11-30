@@ -27,10 +27,13 @@ function App() {
     setIsSidebarOpen(false)
   }
 
+  // Base path pour GitHub Pages
+  const basename = process.env.NODE_ENV === 'production' ? '/MegaMix' : ''
+
   return (
     <ErrorBoundary>
       <PlayerProvider>
-        <Router>
+        <Router basename={basename}>
           <div className="App">
             <Navbar onMenuToggle={handleMenuToggle} />
             <div className="app-layout">

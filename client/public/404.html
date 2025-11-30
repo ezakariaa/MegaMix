@@ -2,32 +2,36 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MuZak - Gestionnaire de Bibliothèque Musicale</title>
     <script>
-      // Rediriger vers index.html pour gérer le routing React sur GitHub Pages
-      // Cette solution fonctionne pour les routes React Router
+      // Solution pour le routing React Router sur GitHub Pages
+      // Redirige toutes les routes vers index.html pour que React Router puisse les gérer
       (function() {
-        var path = location.pathname;
-        
-        // Détecter la base path (ex: /MegaMix/)
+        var path = window.location.pathname;
         var basePath = '/MegaMix/';
         
         // Si on est déjà sur index.html, ne rien faire
-        if (path.endsWith('/index.html')) {
+        if (path.endsWith('/index.html') || path.endsWith('/index.html/')) {
           return;
         }
         
         // Si c'est un fichier statique (CSS, JS, images, etc.), ne rien faire
-        var isStaticFile = /\.(html|js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i.test(path);
-        if (isStaticFile && !path.endsWith('.html')) {
+        var isStaticFile = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|xml)$/i.test(path);
+        if (isStaticFile) {
           return;
         }
         
-        // Sauvegarder l'URL complète pour React Router
-        sessionStorage.redirect = location.href;
+        // Si on est sur la racine du site, rediriger vers index.html
+        if (path === '/' || path === basePath || path === basePath.slice(0, -1)) {
+          window.location.replace(basePath + 'index.html');
+          return;
+        }
         
-        // Rediriger vers index.html avec le bon chemin
-        location.replace(basePath + 'index.html');
+        // Pour les autres routes, rediriger vers index.html avec le chemin complet
+        // React Router gérera ensuite la route
+        var newPath = basePath + 'index.html' + window.location.search + window.location.hash;
+        window.location.replace(newPath);
       })();
     </script>
   </head>
@@ -35,6 +39,9 @@
     <noscript>
       Vous devez activer JavaScript pour utiliser cette application.
     </noscript>
-    <p>Redirection en cours...</p>
+    <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+      <h1>Redirection en cours...</h1>
+      <p>Si la redirection ne fonctionne pas, <a href="/MegaMix/">cliquez ici</a>.</p>
+    </div>
   </body>
 </html>
