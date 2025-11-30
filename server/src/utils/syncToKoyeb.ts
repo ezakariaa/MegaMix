@@ -1,37 +1,42 @@
 /**
- * Utilitaires pour synchroniser les données avec Koyeb
+ * Utilitaires pour synchroniser les données avec Railway (ou Koyeb pour compatibilité)
  */
 
 import { Album, Track, Artist } from '../types'
 
 /**
- * Synchronise les données avec le backend Koyeb déployé
- * Cette fonction est appelée après chaque ajout local pour maintenir la synchronisation
+ * Synchronise les données avec le backend Railway/Koyeb déployé
+ * Cette fonction est appelée après chaque ajout/suppression local pour maintenir la synchronisation
  */
 export async function syncToKoyeb(
   albums: Album[],
   tracks: Track[],
   artists: Artist[]
 ): Promise<void> {
-  // Récupérer l'URL de Koyeb depuis les variables d'environnement
-  const koyebUrl = process.env.KOYEB_URL || process.env.VITE_API_URL
+  // Récupérer l'URL depuis les variables d'environnement (Railway ou Koyeb)
+  const remoteUrl = process.env.RAILWAY_URL || process.env.KOYEB_URL || process.env.VITE_API_URL
   
-  // Si on n'a pas d'URL Koyeb configurée, ne rien faire
-  if (!koyebUrl) {
-    console.log('[SYNC KOYEB] Aucune URL Koyeb configurée, synchronisation ignorée')
+  // Si on n'a pas d'URL configurée, ne rien faire
+  if (!remoteUrl) {
+    console.log('[SYNC] Aucune URL distante configurée, synchronisation ignorée')
     return
   }
 
-  // Si on est déjà sur Koyeb (en production), ne pas se synchroniser avec soi-même
-  if (process.env.NODE_ENV === 'production' && koyebUrl.includes('koyeb.app')) {
-    console.log('[SYNC KOYEB] Déjà sur Koyeb, synchronisation ignorée')
+  // Si on est déjà sur Railway/Koyeb (en production), ne pas se synchroniser avec soi-même
+  const isProduction = process.env.NODE_ENV === 'production'
+  const isRailway = remoteUrl.includes('railway.app')
+  const isKoyeb = remoteUrl.includes('koyeb.app')
+  
+  if (isProduction && (isRailway || isKoyeb)) {
+    console.log('[SYNC] Déjà sur le serveur distant, synchronisation ignorée')
     return
   }
 
   // Construire l'URL de l'endpoint d'import
-  const importUrl = `${koyebUrl.replace(/\/$/, '')}/api/music/import-data`
+  const importUrl = `${remoteUrl.replace(/\/$/, '')}/api/music/import-data`
 
-  console.log(`[SYNC KOYEB] Synchronisation vers ${importUrl}...`)
+  const serviceName = isRailway ? 'Railway' : isKoyeb ? 'Koyeb' : 'distant'
+  console.log(`[SYNC ${serviceName.toUpperCase()}] Synchronisation vers ${importUrl}...`)
 
   try {
     const https = require('https')
@@ -71,14 +76,14 @@ export async function syncToKoyeb(
           if (res.statusCode === 200 || res.statusCode === 201) {
             try {
               const response = JSON.parse(data)
-              console.log(`[SYNC KOYEB] Synchronisation réussie: ${response.counts?.albums || 0} albums, ${response.counts?.tracks || 0} tracks, ${response.counts?.artists || 0} artists`)
+              console.log(`[SYNC ${serviceName.toUpperCase()}] Synchronisation réussie: ${response.counts?.albums || 0} albums, ${response.counts?.tracks || 0} tracks, ${response.counts?.artists || 0} artists`)
               resolve()
             } catch (error) {
-              console.warn('[SYNC KOYEB] Réponse reçue mais erreur de parsing:', error)
+              console.warn(`[SYNC ${serviceName.toUpperCase()}] Réponse reçue mais erreur de parsing:`, error)
               resolve() // On considère que c'est un succès si on a reçu une réponse 200
             }
           } else {
-            console.error(`[SYNC KOYEB] Erreur HTTP ${res.statusCode}:`, data.substring(0, 500))
+            console.error(`[SYNC ${serviceName.toUpperCase()}] Erreur HTTP ${res.statusCode}:`, data.substring(0, 500))
             // Ne pas rejeter pour ne pas bloquer l'ajout local
             resolve()
           }
@@ -86,13 +91,13 @@ export async function syncToKoyeb(
       })
 
       req.on('error', (error: Error) => {
-        console.error('[SYNC KOYEB] Erreur réseau lors de la synchronisation:', error.message)
+        console.error(`[SYNC ${serviceName.toUpperCase()}] Erreur réseau lors de la synchronisation:`, error.message)
         // Ne pas rejeter pour ne pas bloquer l'ajout local
         resolve()
       })
 
       req.on('timeout', () => {
-        console.warn('[SYNC KOYEB] Timeout lors de la synchronisation')
+        console.warn(`[SYNC ${serviceName.toUpperCase()}] Timeout lors de la synchronisation`)
         req.destroy()
         resolve() // Ne pas bloquer l'ajout local
       })
@@ -102,7 +107,8 @@ export async function syncToKoyeb(
     })
   } catch (error: any) {
     // Ne pas faire échouer l'ajout local si la synchronisation échoue
-    console.error('[SYNC KOYEB] Erreur lors de la synchronisation:', error.message)
+    const serviceName = isRailway ? 'Railway' : isKoyeb ? 'Koyeb' : 'distant'
+    console.error(`[SYNC ${serviceName.toUpperCase()}] Erreur lors de la synchronisation:`, error.message)
   }
 }
 
