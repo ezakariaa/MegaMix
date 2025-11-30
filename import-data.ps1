@@ -1,9 +1,9 @@
-# Script PowerShell pour importer les donnees locales vers Koyeb
+# Script PowerShell pour importer les donnees locales vers Railway
 # Encodage: UTF-8 sans BOM
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Import des donnees vers Koyeb..." -ForegroundColor Cyan
+Write-Host "Import des donnees vers Railway..." -ForegroundColor Cyan
 
 # Verifier que les fichiers existent
 $albumsPath = Join-Path $PSScriptRoot "server\data\albums.json"
@@ -91,10 +91,14 @@ try {
     exit 1
 }
 
-# URL du backend Koyeb
-$url = "https://effective-donni-opticode-1865a644.koyeb.app/api/music/import-data"
+# URL du backend Railway
+# MODIFIEZ CETTE URL si votre URL Railway est differente
+$railwayUrl = "https://muzak-server-production.up.railway.app"
 
-Write-Host "Envoi vers Koyeb..." -ForegroundColor Yellow
+$url = "$railwayUrl/api/music/import-data"
+
+Write-Host "Envoi vers Railway..." -ForegroundColor Yellow
+Write-Host "URL: $url" -ForegroundColor Gray
 
 try {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
@@ -106,13 +110,18 @@ try {
     Write-Host "   Tracks: $($response.counts.tracks)" -ForegroundColor White
     Write-Host "   Artists: $($response.counts.artists)" -ForegroundColor White
     Write-Host ""
-    Write-Host "Vos donnees sont maintenant synchronisees !" -ForegroundColor Cyan
-    Write-Host "   Rafraichissez votre site: https://ezakariaa.github.io/MegaMix/" -ForegroundColor White
+    Write-Host "Vos donnees sont maintenant synchronisees avec Railway !" -ForegroundColor Cyan
+    Write-Host "   Rafraichissez votre site pour voir les changements" -ForegroundColor White
 } catch {
     Write-Host "Erreur lors de l'import:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     if ($_.ErrorDetails.Message) {
         Write-Host $_.ErrorDetails.Message -ForegroundColor Red
     }
+    Write-Host ""
+    Write-Host "Verifiez que:" -ForegroundColor Yellow
+    Write-Host "   1. L'URL Railway est correcte" -ForegroundColor White
+    Write-Host "   2. Le backend Railway est actif" -ForegroundColor White
+    Write-Host "   3. L'endpoint /api/music/import-data existe" -ForegroundColor White
     exit 1
 }

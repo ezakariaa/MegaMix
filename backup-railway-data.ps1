@@ -6,14 +6,8 @@ $ErrorActionPreference = "Stop"
 Write-Host "Sauvegarde des donnees depuis Railway..." -ForegroundColor Cyan
 
 # URL du backend Railway
-# MODIFIEZ CETTE URL avec votre URL Railway
-$railwayUrl = "https://votre-app.up.railway.app"
-
-# Demander l'URL si elle n'est pas modifiee
-if ($railwayUrl -eq "https://votre-app.up.railway.app") {
-    Write-Host "Veuillez modifier l'URL Railway dans le script ou la saisir maintenant:" -ForegroundColor Yellow
-    $railwayUrl = Read-Host "URL Railway (ex: https://votre-app.up.railway.app)"
-}
+# MODIFIEZ CETTE URL si votre URL Railway est differente
+$railwayUrl = "https://muzak-server-production.up.railway.app"
 
 # Creer un dossier de sauvegarde avec timestamp
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
