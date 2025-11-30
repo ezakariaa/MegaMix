@@ -1,0 +1,4 @@
+# Ignorer le Dockerfile pour Railway
+# Railway utilisera NIXPACKS (détection automatique) au lieu du Dockerfile
+server/Dockerfile
+
