@@ -217,7 +217,7 @@ function Home() {
   return (
     <DragDropZone onFilesDropped={handleFilesDropped}>
       <Container fluid className="home-page">
-      <Row className="mb-2">
+      <Row className="mb-2 d-none d-md-flex">
         <Col md={6} lg={3} className="mb-4">
           <Card className="spotify-card h-100">
             <Card.Body>

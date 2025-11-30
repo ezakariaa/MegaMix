@@ -12,14 +12,19 @@ Le chargement des données (albums, bibliothèque, etc.) était parfois lent, su
 
 **Fonctionnalités** :
 - ✅ Cache automatique des données (albums, artistes, genres, pistes)
-- ✅ Durée de vie : 5 minutes
-- ✅ Rafraîchissement en arrière-plan
-- ✅ Fallback sur cache même expiré en cas d'erreur réseau
+- ✅ Durée de vie : 2 minutes (réduit pour éviter les données obsolètes)
+- ✅ Utilisé uniquement en cas d'erreur réseau (fallback)
+- ✅ Rafraîchissement en arrière-plan si cache utilisé
+
+**Stratégie** :
+- 🔄 **Appel API toujours en premier** : Les données sont toujours récupérées depuis l'API
+- 🛡️ **Cache comme fallback** : Le cache n'est utilisé que si l'API échoue
+- ✅ **Données toujours fraîches** : Évite les problèmes de données vides ou obsolètes
 
 **Avantages** :
-- ⚡ **Chargement instantané** : Les données en cache s'affichent immédiatement
-- 🔄 **Rafraîchissement automatique** : Les données sont mises à jour en arrière-plan
-- 🛡️ **Résilience** : Si Railway est lent, le cache est utilisé
+- ⚡ **Données toujours à jour** : Pas de risque de données vides ou obsolètes
+- 🔄 **Résilience réseau** : Si Railway est inaccessible, le cache est utilisé
+- 🛡️ **Performance optimale** : Les données sont mises en cache après récupération réussie
 
 ### 2. Timeouts Augmentés
 
@@ -33,7 +38,7 @@ Cela permet de mieux gérer les "cold starts" de Railway (quand le service se r�
 **Ajouté** :
 - ✅ Spinner de chargement visible
 - ✅ Message "Chargement des albums..."
-- ✅ Affichage immédiat si données en cache
+- ✅ Gestion d'erreur claire si l'API échoue
 
 ### 4. Invalidation Intelligente du Cache
 

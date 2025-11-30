@@ -140,25 +140,14 @@ export async function scanMusicFiles(
  * Récupère tous les albums avec cache
  */
 export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
-  // Vérifier le cache d'abord
-  if (useCache) {
-    const cached = getCached<Album[]>('albums')
-    if (cached) {
-      // Retourner les données en cache immédiatement
-      // Puis rafraîchir en arrière-plan
-      refreshAlbumsInBackground()
-      return cached
-    }
-  }
-
   try {
     const response = await axios.get<{ albums: Album[] }>(`${API_BASE_URL}/music/albums`, {
       timeout: 10000, // Augmenté à 10 secondes pour Railway
     })
     const albums = response.data.albums
     
-    // Mettre en cache
-    if (useCache) {
+    // Mettre en cache seulement si succès
+    if (useCache && albums.length > 0) {
       setCached('albums', albums)
     }
     
@@ -167,8 +156,10 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     // Si erreur réseau, essayer de retourner le cache même expiré
     if (useCache) {
       const cached = getCached<Album[]>('albums')
-      if (cached) {
+      if (cached && cached.length > 0) {
         console.warn('Utilisation du cache en raison d\'une erreur réseau')
+        // Rafraîchir en arrière-plan
+        refreshAlbumsInBackground()
         return cached
       }
     }
@@ -246,15 +237,8 @@ async function refreshGenresInBackground(): Promise<void> {
  * Récupère les pistes d'un album
  */
 export async function getAlbumTracks(albumId: string): Promise<Track[]> {
-  // Vérifier le cache d'abord
   const cacheKey = `album_tracks_${albumId}`
-  const cached = getCached<Track[]>(cacheKey)
-  if (cached) {
-    // Rafraîchir en arrière-plan
-    refreshAlbumTracksInBackground(albumId, cacheKey)
-    return cached
-  }
-
+  
   try {
     const response = await axios.get<{ tracks: Track[] }>(
       `${API_BASE_URL}/music/albums/${albumId}/tracks`,
@@ -262,14 +246,19 @@ export async function getAlbumTracks(albumId: string): Promise<Track[]> {
     )
     const tracks = response.data.tracks
     
-    // Mettre en cache
-    setCached(cacheKey, tracks)
+    // Mettre en cache seulement si succès et non vide
+    if (tracks.length > 0) {
+      setCached(cacheKey, tracks)
+    }
     
     return tracks
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
     const cached = getCached<Track[]>(cacheKey)
-    if (cached) {
+    if (cached && cached.length > 0) {
+      console.warn('Utilisation du cache en raison d\'une erreur réseau')
+      // Rafraîchir en arrière-plan
+      refreshAlbumTracksInBackground(albumId, cacheKey)
       return cached
     }
     console.error('Erreur lors de la récupération des pistes:', error)
@@ -281,27 +270,24 @@ export async function getAlbumTracks(albumId: string): Promise<Track[]> {
  * Récupère tous les artistes
  */
 export async function getArtists(): Promise<Artist[]> {
-  // Vérifier le cache d'abord
-  const cached = getCached<Artist[]>('artists')
-  if (cached) {
-    refreshArtistsInBackground()
-    return cached
-  }
-
   try {
     const response = await axios.get<{ artists: Artist[] }>(`${API_BASE_URL}/music/artists`, {
       timeout: 10000, // Augmenté à 10 secondes
     })
     const artists = response.data.artists
     
-    // Mettre en cache
-    setCached('artists', artists)
+    // Mettre en cache seulement si succès et non vide
+    if (artists.length > 0) {
+      setCached('artists', artists)
+    }
     
     return artists
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
     const cached = getCached<Artist[]>('artists')
-    if (cached) {
+    if (cached && cached.length > 0) {
+      console.warn('Utilisation du cache en raison d\'une erreur réseau')
+      refreshArtistsInBackground()
       return cached
     }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
@@ -359,27 +345,24 @@ export async function getArtistById(artistId: string): Promise<Artist | null> {
  * Récupère tous les genres
  */
 export async function getGenres(): Promise<Genre[]> {
-  // Vérifier le cache d'abord
-  const cached = getCached<Genre[]>('genres')
-  if (cached) {
-    refreshGenresInBackground()
-    return cached
-  }
-
   try {
     const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
       timeout: 10000, // Augmenté à 10 secondes
     })
     const genres = response.data.genres
     
-    // Mettre en cache
-    setCached('genres', genres)
+    // Mettre en cache seulement si succès et non vide
+    if (genres.length > 0) {
+      setCached('genres', genres)
+    }
     
     return genres
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
     const cached = getCached<Genre[]>('genres')
-    if (cached) {
+    if (cached && cached.length > 0) {
+      console.warn('Utilisation du cache en raison d\'une erreur réseau')
+      refreshGenresInBackground()
       return cached
     }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
