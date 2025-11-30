@@ -9,8 +9,10 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000
 
-// Créer le dossier de téléchargement
-ensureUploadDirectory()
+// Créer le dossier de téléchargement (async, mais on ne bloque pas le démarrage)
+ensureUploadDirectory().catch(err => {
+  console.error('⚠️  Erreur lors de la création du dossier uploads:', err)
+})
 
 // Configuration CORS
 // En production, accepter toutes les origines si ALLOWED_ORIGINS n'est pas défini
