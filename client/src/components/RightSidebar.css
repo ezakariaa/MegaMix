@@ -303,6 +303,81 @@
   }
 }
 
+/* Recently Played */
+.recently-played-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recently-played-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.recently-played-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.recently-played-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--spotify-gray);
+  flex-shrink: 0;
+}
+
+.recently-played-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recently-played-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--spotify-gray) 0%, var(--spotify-dark-gray) 100%);
+  color: var(--spotify-light-gray);
+}
+
+.recently-played-cover-placeholder i {
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+
+.recently-played-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.recently-played-title {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recently-played-artist {
+  color: var(--spotify-light-gray);
+  font-size: 0.8rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 768px) {
   .right-sidebar {
     display: none;

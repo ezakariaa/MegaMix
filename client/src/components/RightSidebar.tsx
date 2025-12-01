@@ -4,7 +4,7 @@ import { getArtistById, getArtistAlbums, getAlbumTracks, Artist } from '../servi
 import './RightSidebar.css'
 
 function RightSidebar() {
-  const { currentTrack, playAlbum, isPlaying, togglePlay } = usePlayer()
+  const { currentTrack, playAlbum, isPlaying, togglePlay, recentlyPlayed, playTrack } = usePlayer()
   const [artist, setArtist] = useState<Artist | null>(null)
   const [loadingArtist, setLoadingArtist] = useState(false)
   const [loadingPlay, setLoadingPlay] = useState(false)
@@ -216,9 +216,39 @@ function RightSidebar() {
 
         <div className="right-sidebar-section">
           <h3 className="right-sidebar-title">Récemment joués</h3>
-          <div className="right-sidebar-placeholder">
-            <p>Vos morceaux récents apparaîtront ici</p>
-          </div>
+          {recentlyPlayed.length > 0 ? (
+            <div className="recently-played-list">
+              {recentlyPlayed.map((track) => (
+                <div
+                  key={track.id}
+                  className="recently-played-item"
+                  onClick={() => playTrack(track)}
+                >
+                  <div className="recently-played-cover">
+                    {track.coverArt ? (
+                      <img 
+                        src={track.coverArt} 
+                        alt={`${track.album} - ${track.artist}`}
+                        className="recently-played-cover-img"
+                      />
+                    ) : (
+                      <div className="recently-played-cover-placeholder">
+                        <i className="bi bi-vinyl"></i>
+                      </div>
+                    )}
+                  </div>
+                  <div className="recently-played-info">
+                    <div className="recently-played-title">{track.title}</div>
+                    <div className="recently-played-artist">{track.artist}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="right-sidebar-placeholder">
+              <p>Vos morceaux récents apparaîtront ici</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

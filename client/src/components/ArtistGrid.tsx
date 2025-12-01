@@ -30,9 +30,9 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   }, [artists, allAlbums])
 
   const handleArtistClick = (artist: Artist) => {
-    // Pour l'instant, on peut naviguer vers une page de détail de l'artiste
-    // Ou afficher ses albums - à implémenter plus tard
-    console.log('Clic sur artiste:', artist.name)
+    // Naviguer vers la page de recherche avec le nom de l'artiste
+    // Cela affichera les albums, compilations et pistes de cet artiste
+    navigate(`/search?q=${encodeURIComponent(artist.name)}`)
   }
 
   const handlePlayClick = async (e: React.MouseEvent, artist: Artist) => {

@@ -5,7 +5,7 @@ import AlbumGrid from '../components/AlbumGrid'
 import { getAlbums, scanMusicFiles, deleteAlbums, addMusicFromGoogleDrive, reanalyzeTags, Album } from '../services/musicService'
 import './Home.css'
 
-type SortOption = 'alphabetical' | 'artist' | 'year' | 'recent'
+type SortOption = 'random' | 'alphabetical' | 'artist' | 'year' | 'recent'
 
 function Library() {
   const [albums, setAlbums] = useState<Album[]>([])
@@ -13,7 +13,7 @@ function Library() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; percentage: number } | null>(null)
   const [processingStatus, setProcessingStatus] = useState<string>('')
-  const [sortBy, setSortBy] = useState<SortOption>('alphabetical')
+  const [sortBy, setSortBy] = useState<SortOption>('random')
   const [showGoogleDriveModal, setShowGoogleDriveModal] = useState(false)
   const [googleDriveUrl, setGoogleDriveUrl] = useState('')
   const [isCompilation, setIsCompilation] = useState(false)
@@ -69,6 +69,15 @@ function Library() {
     const albumsCopy = [...albums]
     
     switch (sortBy) {
+      case 'random':
+        // Mélanger les albums de manière aléatoire
+        const shuffled = [...albumsCopy]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        return shuffled
+      
       case 'alphabetical':
         return albumsCopy.sort((a, b) => {
           const titleA = a.title.toLowerCase()
@@ -341,12 +350,20 @@ function Library() {
                   <Dropdown>
                     <Dropdown.Toggle variant="outline-secondary" className="filter-dropdown">
                       <i className="bi bi-funnel me-2"></i>
+                      {sortBy === 'random' && 'Aléatoire'}
                       {sortBy === 'alphabetical' && 'Ordre alphabétique'}
                       {sortBy === 'artist' && 'Par artiste'}
                       {sortBy === 'year' && 'Par année'}
                       {sortBy === 'recent' && 'Par Dernier Ajout'}
                     </Dropdown.Toggle>
                     <Dropdown.Menu>
+                      <Dropdown.Item 
+                        active={sortBy === 'random'}
+                        onClick={() => setSortBy('random')}
+                      >
+                        <i className="bi bi-shuffle me-2"></i>
+                        Aléatoire
+                      </Dropdown.Item>
                       <Dropdown.Item 
                         active={sortBy === 'alphabetical'}
                         onClick={() => setSortBy('alphabetical')}

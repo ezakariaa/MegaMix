@@ -31,6 +31,7 @@ interface PlayerContextType {
   previousTrack: () => void
   queue: Track[]
   setQueue: (tracks: Track[]) => void
+  recentlyPlayed: Track[]
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined)
@@ -44,9 +45,42 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off')
   const [queue, setQueue] = useState<Track[]>([])
   const [currentTrackIndex, setCurrentTrackIndex] = useState(-1)
+  const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([])
   
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const currentTrackRef = useRef<Track | null>(null)
+
+  // Charger l'historique depuis localStorage au démarrage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('recentlyPlayed')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          setRecentlyPlayed(parsed.slice(0, 10)) // Limiter à 10
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'historique:', error)
+    }
+  }, [])
+
+  // Fonction pour ajouter une piste à l'historique
+  const addToRecentlyPlayed = useCallback((track: Track) => {
+    setRecentlyPlayed(prev => {
+      // Retirer la piste si elle existe déjà pour éviter les doublons
+      const filtered = prev.filter(t => t.id !== track.id)
+      // Ajouter la nouvelle piste au début et limiter à 10
+      const updated = [track, ...filtered].slice(0, 10)
+      // Sauvegarder dans localStorage
+      try {
+        localStorage.setItem('recentlyPlayed', JSON.stringify(updated))
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde de l\'historique:', error)
+      }
+      return updated
+    })
+  }, [])
 
   // Créer l'élément audio une seule fois
   useEffect(() => {
@@ -117,6 +151,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setCurrentTrack(track)
     setCurrentTime(0)
     setIsPlaying(false) // Arrêter la lecture actuelle
+    
+    // Ajouter à l'historique des pistes récemment jouées
+    addToRecentlyPlayed(track)
 
     // Construire l'URL du fichier audio via l'API
     let audioUrl: string
@@ -207,7 +244,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       console.error('❌ Erreur lors de la préparation de la lecture:', error)
       setIsPlaying(false)
     }
-  }, [togglePlay])
+  }, [togglePlay, addToRecentlyPlayed])
 
   // Gérer la fin de piste
   const handleTrackEnded = useCallback(() => {
@@ -338,6 +375,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         previousTrack,
         queue,
         setQueue,
+        recentlyPlayed,
       }}
     >
       {children}

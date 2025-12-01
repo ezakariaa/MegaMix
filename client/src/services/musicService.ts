@@ -344,10 +344,18 @@ export async function searchAll(query: string): Promise<SearchResults> {
     ])
 
     // Filtrer les albums
+    // Inclure les albums où l'artiste est l'albumArtist OU où l'artiste apparaît dans les pistes (compilations)
+    const albumIdsWithArtistTracks = new Set(
+      allTracks
+        .filter(track => track.artist.toLowerCase().includes(searchTerm))
+        .map(track => track.albumId)
+    )
+    
     const filteredAlbums = allAlbums.filter(album => 
       album.title.toLowerCase().includes(searchTerm) ||
       album.artist.toLowerCase().includes(searchTerm) ||
-      (album.genre && album.genre.toLowerCase().includes(searchTerm))
+      (album.genre && album.genre.toLowerCase().includes(searchTerm)) ||
+      albumIdsWithArtistTracks.has(album.id) // Inclure les compilations où l'artiste apparaît
     )
 
     // Filtrer les artistes

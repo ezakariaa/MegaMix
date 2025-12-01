@@ -44,6 +44,11 @@ function SearchResultsPage() {
     results.tracks.length > 0 || 
     results.genres.length > 0
 
+  // Détecter si la recherche correspond exactement à un artiste
+  const isArtistPage = results.artists.length === 1 && 
+                       results.artists[0].name.toLowerCase() === query.toLowerCase().trim()
+  const artistName = isArtistPage ? results.artists[0].name : null
+
   if (loading) {
     return (
       <Container fluid className="search-results-page">
@@ -102,8 +107,17 @@ function SearchResultsPage() {
       <Row>
         <Col>
           <h1 className="page-title">
-            <i className="bi bi-search"></i>
-            Résultats de recherche pour "{query}"
+            {isArtistPage ? (
+              <>
+                <i className="bi bi-person-circle me-2"></i>
+                {artistName}
+              </>
+            ) : (
+              <>
+                <i className="bi bi-search"></i>
+                Résultats de recherche pour "{query}"
+              </>
+            )}
           </h1>
 
           {/* Section Albums */}
@@ -151,6 +165,7 @@ function SearchResultsPage() {
                     <div className="search-track-info">
                       <div className="search-track-title-artist">
                         <span className="search-track-title">{track.title}</span>
+                        <span className="search-track-separator"> - </span>
                         <span className="search-track-artist">{track.artist}</span>
                       </div>
                     </div>
