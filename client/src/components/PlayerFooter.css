@@ -48,6 +48,12 @@
   overflow: hidden;
   background-color: var(--spotify-gray);
   flex-shrink: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.player-album-art:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
 }
 
 .player-album-art img {

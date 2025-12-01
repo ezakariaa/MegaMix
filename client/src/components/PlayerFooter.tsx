@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../contexts/PlayerContext'
 import './PlayerFooter.css'
 
@@ -19,8 +20,15 @@ function PlayerFooter() {
     previousTrack,
   } = usePlayer()
   
+  const navigate = useNavigate()
   const [isLiked, setIsLiked] = useState(false)
   const [isVolumeHovered, setIsVolumeHovered] = useState(false)
+
+  const handleCoverClick = () => {
+    if (currentTrack?.albumId) {
+      navigate(`/album/${currentTrack.albumId}`)
+    }
+  }
 
   // Si aucune piste n'est sélectionnée, afficher un état par défaut
   if (!currentTrack) {
@@ -116,7 +124,12 @@ function PlayerFooter() {
       <div className="player-footer-content">
         {/* Section gauche : Album art + Info */}
         <div className="player-left">
-          <div className="player-album-art">
+          <div 
+            className="player-album-art"
+            onClick={handleCoverClick}
+            style={{ cursor: currentTrack.albumId ? 'pointer' : 'default' }}
+            title={currentTrack.albumId ? 'Voir l\'album' : undefined}
+          >
             {currentTrack.coverArt ? (
               <img src={currentTrack.coverArt} alt={currentTrack.album} />
             ) : (
