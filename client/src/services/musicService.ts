@@ -267,6 +267,105 @@ export async function getAlbumTracks(albumId: string): Promise<Track[]> {
 }
 
 /**
+ * Récupère toutes les pistes
+ */
+export async function getTracks(): Promise<Track[]> {
+  try {
+    const response = await axios.get<{ tracks: Track[] }>(`${API_BASE_URL}/music/tracks`, {
+      timeout: 10000,
+    })
+    const tracks = response.data.tracks
+    
+    // Mettre en cache seulement si succès et non vide
+    if (tracks.length > 0) {
+      setCached('tracks', tracks)
+    }
+    
+    return tracks
+  } catch (error: any) {
+    // Si erreur, essayer le cache même expiré
+    const cached = getCached<Track[]>('tracks')
+    if (cached && cached.length > 0) {
+      console.warn('Utilisation du cache en raison d\'une erreur réseau')
+      return cached
+    }
+    // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+      console.warn('Serveur backend non disponible:', error.message)
+    } else {
+      console.error('Erreur lors de la récupération des pistes:', error)
+    }
+    return []
+  }
+}
+
+/**
+ * Interface pour les résultats de recherche
+ */
+export interface SearchResults {
+  albums: Album[]
+  artists: Artist[]
+  tracks: Track[]
+  genres: Genre[]
+}
+
+/**
+ * Recherche dans albums, artistes, pistes et genres
+ */
+export async function searchAll(query: string): Promise<SearchResults> {
+  if (!query || query.trim().length === 0) {
+    return { albums: [], artists: [], tracks: [], genres: [] }
+  }
+
+  const searchTerm = query.toLowerCase().trim()
+  
+  try {
+    // Récupérer toutes les données en parallèle
+    const [allAlbums, allArtists, allTracks, allGenres] = await Promise.all([
+      getAlbums(),
+      getArtists(),
+      getTracks(),
+      getGenres(),
+    ])
+
+    // Filtrer les albums
+    const filteredAlbums = allAlbums.filter(album => 
+      album.title.toLowerCase().includes(searchTerm) ||
+      album.artist.toLowerCase().includes(searchTerm) ||
+      (album.genre && album.genre.toLowerCase().includes(searchTerm))
+    )
+
+    // Filtrer les artistes
+    const filteredArtists = allArtists.filter(artist =>
+      artist.name.toLowerCase().includes(searchTerm)
+    )
+
+    // Filtrer les pistes
+    const filteredTracks = allTracks.filter(track =>
+      track.title.toLowerCase().includes(searchTerm) ||
+      track.artist.toLowerCase().includes(searchTerm) ||
+      (track.album && track.album.toLowerCase().includes(searchTerm)) ||
+      (track.genre && track.genre.toLowerCase().includes(searchTerm))
+    )
+
+    // Filtrer les genres
+    const filteredGenres = allGenres.filter(genre =>
+      genre.name.toLowerCase().includes(searchTerm)
+    )
+
+    return {
+      albums: filteredAlbums,
+      artists: filteredArtists,
+      tracks: filteredTracks,
+      genres: filteredGenres,
+    }
+  } catch (error) {
+    console.error('Erreur lors de la recherche:', error)
+    return { albums: [], artists: [], tracks: [], genres: [] }
+  }
+}
+
+/**
  * Récupère tous les artistes
  */
 export async function getArtists(): Promise<Artist[]> {

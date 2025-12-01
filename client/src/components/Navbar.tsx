@@ -22,8 +22,16 @@ function Navbar({ onMenuToggle }: NavbarProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      navigate(`/library?search=${encodeURIComponent(searchQuery.trim())}`)
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
     }
+  }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleSearchClear = () => {
+    setSearchQuery('')
   }
 
   const handleLogin = () => {
@@ -58,13 +66,13 @@ function Navbar({ onMenuToggle }: NavbarProps) {
                 className="navbar-search-input"
                 placeholder="Rechercher des artistes, albums, pistes..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
               />
               {searchQuery && (
                 <button
                   type="button"
                   className="navbar-search-clear"
-                  onClick={() => setSearchQuery('')}
+                  onClick={handleSearchClear}
                   aria-label="Effacer"
                 >
                   <i className="bi bi-x"></i>

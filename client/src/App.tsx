@@ -14,6 +14,7 @@ import Genres from './pages/Genres'
 import Playlists from './pages/Playlists'
 import Library from './pages/Library'
 import AlbumDetail from './pages/AlbumDetail'
+import SearchResultsPage from './pages/SearchResultsPage'
 import './App.css'
 
 function App() {
@@ -48,6 +49,7 @@ function App() {
                     <Route path="/album/:albumId" element={<AlbumDetail />} />
                     <Route path="/genres" element={<Genres />} />
                     <Route path="/playlists" element={<Playlists />} />
+                    <Route path="/search" element={<SearchResultsPage />} />
                   </Routes>
                 </div>
               </main>
