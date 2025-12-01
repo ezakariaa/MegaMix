@@ -2084,7 +2084,6 @@ router.post('/analyze-tags', upload.single('file'), async (req: Request, res: Re
         comment: metadata.common.comment,
         composer: metadata.common.composer,
         conductor: metadata.common.conductor,
-        performer: metadata.common.performer,
         remixer: metadata.common.remixer,
         label: metadata.common.label,
         bpm: metadata.common.bpm,
@@ -2097,7 +2096,7 @@ router.post('/analyze-tags', upload.single('file'), async (req: Request, res: Re
 
       // Extraire tous les tags natifs (ID3v2, etc.)
       const nativeTags: any[] = []
-      if (metadata.native) {
+      if (metadata.native && Array.isArray(metadata.native)) {
         for (const tag of metadata.native) {
           nativeTags.push({
             id: tag.id,
@@ -2137,7 +2136,7 @@ router.post('/analyze-tags', upload.single('file'), async (req: Request, res: Re
       }
 
       // Chercher les tags spécifiques dans les tags natifs
-      if (metadata.native) {
+      if (metadata.native && Array.isArray(metadata.native)) {
         for (const tag of metadata.native) {
           if (tag.id in specificTags && tag.value) {
             specificTags[tag.id as keyof typeof specificTags] = Array.isArray(tag.value) ? tag.value[0] : tag.value
@@ -2210,6 +2209,10 @@ router.post('/reanalyze-tags', async (req: Request, res: Response) => {
       const batch = tracks.slice(i, i + BATCH_SIZE)
       
       await Promise.all(batch.map(async (track) => {
+        // Déclarer les variables avant le try pour qu'elles soient accessibles dans le catch
+        let filePathToAnalyze: string | null = null
+        let isTempFile = false
+        
         try {
           // Vérifier si le fichier existe
           if (!track.filePath) {
@@ -2217,9 +2220,6 @@ router.post('/reanalyze-tags', async (req: Request, res: Response) => {
             skippedCount++
             return
           }
-          
-          let filePathToAnalyze: string | null = null
-          let isTempFile = false
           
           // Gérer les fichiers Google Drive
           if (track.filePath.startsWith('gdrive://')) {
