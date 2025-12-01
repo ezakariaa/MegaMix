@@ -32,10 +32,31 @@ function Library() {
       setLoading(true)
     }
     try {
+      console.log('[LIBRARY] Chargement des albums...')
       const loadedAlbums = await getAlbums()
+      console.log('[LIBRARY] Albums chargés:', loadedAlbums.length)
       setAlbums(loadedAlbums)
-    } catch (error) {
-      console.error('Erreur lors du chargement des albums:', error)
+      if (loadedAlbums.length === 0) {
+        console.warn('[LIBRARY] Aucun album trouvé. Vérifiez la connexion au backend.')
+        setMessage({
+          type: 'error',
+          text: 'Aucun album trouvé. Vérifiez que le backend Railway est accessible.'
+        })
+        setTimeout(() => setMessage(null), 5000)
+      }
+    } catch (error: any) {
+      console.error('[LIBRARY] Erreur lors du chargement des albums:', error)
+      console.error('[LIBRARY] Détails de l\'erreur:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      })
+      setMessage({
+        type: 'error',
+        text: `Erreur de connexion au backend: ${error.message || 'Vérifiez que le backend Railway est accessible'}`
+      })
+      setTimeout(() => setMessage(null), 10000)
     } finally {
       if (showLoading) {
         setLoading(false)

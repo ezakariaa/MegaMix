@@ -8,9 +8,18 @@ const getApiBaseUrl = () => {
   // Nettoyer l'URL (retirer le slash final s'il existe)
   const cleanUrl = baseUrl.replace(/\/$/, '')
   // Ajouter /api si ce n'est pas déjà présent
-  return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`
+  const apiUrl = cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`
+  // Log pour déboguer (uniquement en développement)
+  if (import.meta.env.DEV) {
+    console.log('[API] URL de base configurée:', baseUrl)
+    console.log('[API] URL de l\'API:', apiUrl)
+  }
+  return apiUrl
 }
 const API_BASE_URL = getApiBaseUrl()
+
+// Log l'URL utilisée au chargement du module
+console.log('[API] URL de l\'API utilisée:', API_BASE_URL)
 
 export interface Album {
   id: string
