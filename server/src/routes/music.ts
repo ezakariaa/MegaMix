@@ -90,13 +90,20 @@ router.post('/scan-files', upload.array('files', 100), async (req: Request, res:
           newTracks.push(track)
 
           // Créer ou mettre à jour l'album
-          const albumKey = `${track.artistId}-${track.albumId}`
+          // Utiliser l'artiste de l'album (albumArtist) pour créer l'album, pas l'artiste de la piste
+          const albumArtistForAlbum = track.albumArtist || track.artist
+          const albumArtistIdForAlbum = track.albumArtistId || track.artistId
+          const isCompilation = albumArtistForAlbum.toLowerCase().includes('various') || 
+                                albumArtistForAlbum.toLowerCase().includes('compilation') ||
+                                albumArtistForAlbum.toLowerCase().includes('various artists') ||
+                                albumArtistForAlbum.toLowerCase() === 'various'
+          const albumKey = isCompilation ? track.albumId : `${albumArtistIdForAlbum}-${track.albumId}`
           if (!albumsMap.has(albumKey)) {
             albumsMap.set(albumKey, {
               id: track.albumId,
               title: track.album || 'Album Inconnu',
-              artist: track.artist,
-              artistId: track.artistId,
+              artist: albumArtistForAlbum, // Artiste de l'album (Album Artist)
+              artistId: albumArtistIdForAlbum,
               year: track.year,
               genre: track.genre,
               trackCount: 1,
@@ -165,6 +172,20 @@ router.post('/scan-files', upload.array('files', 100), async (req: Request, res:
       }
     })
 
+    // Sauvegarder les données après modification
+    try {
+      await saveAllData(albums, tracks, artists)
+      console.log('[PERSISTENCE] Données sauvegardées avec succès après scan de fichiers locaux')
+      
+      // Synchroniser avec Koyeb/Railway en arrière-plan (ne pas bloquer la réponse)
+      syncToKoyeb(albums, tracks, artists).catch((error) => {
+        console.error('[SYNC] Erreur lors de la synchronisation après scan de fichiers locaux:', error)
+      })
+    } catch (error) {
+      console.error('[PERSISTENCE] Erreur lors de la sauvegarde après scan de fichiers locaux:', error)
+      // Ne pas échouer la requête si la sauvegarde échoue, mais logger l'erreur
+    }
+
     res.json({
       success: true,
       albums: newAlbums,
@@ -187,27 +208,113 @@ async function extractTrackMetadataAndCover(filePath: string): Promise<{ track: 
     const metadata = await parseFile(filePath)
     const common = metadata.common
 
-    const artist = common.artist || 'Artiste Inconnu'
+    // Artist (TPE1) = Artiste de la piste individuelle
+    const trackArtist = common.artist || 'Artiste Inconnu'
+    // Album Artist (TPE2 ou common.albumartist) = Artiste de l'album (pour les compilations)
+    const albumArtist = common.albumartist || undefined
     const album = common.album || path.basename(path.dirname(filePath))
     const title = common.title || path.basename(filePath, path.extname(filePath))
 
-    // Générer des IDs simples basés sur les noms
-    const artistId = generateId(artist)
-    const albumId = generateId(`${artist}-${album}`)
-    const trackId = generateId(`${artist}-${album}-${title}`)
+    // Extraire les tags ID3 additionnels (TPE2, TPE3, TPE4) depuis metadata.native
+    let band: string | undefined = undefined // TPE2 (peut être Album Artist ou Band)
+    let conductor: string | undefined = undefined // TPE3
+    let remixer: string | undefined = undefined // TPE4
+    
+    // Si TPE2 existe et qu'il n'y a pas d'albumartist dans common, utiliser TPE2 comme Album Artist
+    let albumArtistFromTPE2: string | undefined = undefined
+
+    try {
+      if (metadata.native) {
+        // Log pour déboguer
+        console.log(`[METADATA] metadata.native existe, type: ${Array.isArray(metadata.native) ? 'array' : typeof metadata.native}`)
+        
+        if (Array.isArray(metadata.native)) {
+          console.log(`[METADATA] Nombre de tags natifs: ${metadata.native.length}`)
+          // Chercher dans les tags natifs
+          for (const tag of metadata.native) {
+            try {
+              if (tag && tag.id && tag.value) {
+                // Log tous les tags pour voir ce qui est disponible
+                if (tag.id.startsWith('TPE')) {
+                  console.log(`[METADATA] Tag trouvé: ${tag.id} = ${Array.isArray(tag.value) ? tag.value[0] : tag.value}`)
+                }
+                
+                if (tag.id === 'TPE2') {
+                  // TPE2 - Band/Orchestra/Accompaniment (ou Album Artist dans certains cas)
+                  const tpe2Value = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                  band = tpe2Value
+                  // Si pas d'albumartist dans common, TPE2 est probablement l'Album Artist
+                  if (!albumArtist) {
+                    albumArtistFromTPE2 = tpe2Value
+                  }
+                  console.log(`[METADATA] ✓ TPE2 extrait: ${band}`)
+                } else if (tag.id === 'TPE3') {
+                  // TPE3 - Conductor/Performer refinement
+                  conductor = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                  console.log(`[METADATA] ✓ TPE3 extrait: ${conductor}`)
+                } else if (tag.id === 'TPE4') {
+                  // TPE4 - Interpreted, remixed, or otherwise modified by
+                  remixer = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                  console.log(`[METADATA] ✓ TPE4 extrait: ${remixer}`)
+                }
+              }
+            } catch (tagError) {
+              // Ignorer les erreurs sur un tag individuel et continuer
+              console.warn(`[METADATA] Erreur lors de l'extraction du tag ${tag?.id}:`, tagError)
+            }
+          }
+        } else {
+          // Si ce n'est pas un tableau, peut-être que c'est un objet avec des clés
+          console.log(`[METADATA] metadata.native n'est pas un tableau, structure:`, Object.keys(metadata.native || {}))
+        }
+      } else {
+        console.log(`[METADATA] metadata.native n'existe pas pour ${filePath}`)
+      }
+      
+      // Log final des valeurs extraites
+      if (band || conductor || remixer) {
+        console.log(`[METADATA] Tags additionnels extraits - TPE2: ${band || 'N/A'}, TPE3: ${conductor || 'N/A'}, TPE4: ${remixer || 'N/A'}`)
+      } else {
+        console.log(`[METADATA] Aucun tag additionnel (TPE2/TPE3/TPE4) trouvé pour ${filePath}`)
+      }
+    } catch (nativeError) {
+      // Si l'extraction des tags natifs échoue, on continue sans ces tags additionnels
+      console.warn(`[METADATA] Erreur lors de l'extraction des tags natifs (non bloquant):`, nativeError)
+    }
+
+    // Déterminer l'artiste de l'album : Album Artist > TPE2 > Artist
+    const finalAlbumArtist = albumArtist || albumArtistFromTPE2 || trackArtist
+    
+    // Générer des IDs
+    const trackArtistId = generateId(trackArtist) // ID pour l'artiste de la piste
+    const albumArtistId = generateId(finalAlbumArtist) // ID pour l'artiste de l'album
+    
+    // Pour les albums compilation (Various Artists, Compilation, etc.), utiliser uniquement le nom de l'album
+    // Sinon, utiliser albumArtist-album pour éviter les conflits
+    const isCompilation = finalAlbumArtist.toLowerCase().includes('various') || 
+                          finalAlbumArtist.toLowerCase().includes('compilation') ||
+                          finalAlbumArtist.toLowerCase().includes('various artists') ||
+                          finalAlbumArtist.toLowerCase() === 'various'
+    const albumId = isCompilation ? generateId(album) : generateId(`${finalAlbumArtist}-${album}`)
+    const trackId = generateId(`${trackArtist}-${album}-${title}`)
 
     const track: Track = {
       id: trackId,
       title,
-      artist,
-      artistId,
+      artist: trackArtist, // Artiste de la piste individuelle (TPE1)
+      artistId: trackArtistId, // ID de l'artiste de la piste
       album,
       albumId,
+      albumArtist: finalAlbumArtist, // Artiste de l'album (Album Artist)
+      albumArtistId: albumArtistId, // ID de l'artiste de l'album
       duration: Math.round(metadata.format.duration || 0),
       genre: common.genre?.[0],
       filePath: filePath,
       trackNumber: common.track?.no || undefined,
       year: common.year || undefined,
+      band,
+      conductor,
+      remixer,
     }
 
     // Extraire la couverture en même temps (si disponible)
@@ -227,8 +334,13 @@ async function extractTrackMetadataAndCover(filePath: string): Promise<{ track: 
     }
 
     return { track, coverArt }
-  } catch (error) {
-    console.error(`Erreur lors de l'extraction des métadonnées de ${filePath}:`, error)
+  } catch (error: any) {
+    console.error(`[METADATA] ✗ Erreur lors de l'extraction des métadonnées de ${filePath}:`, error)
+    console.error(`[METADATA] Type d'erreur:`, error?.name)
+    console.error(`[METADATA] Message:`, error?.message)
+    if (error?.stack) {
+      console.error(`[METADATA] Stack trace:`, error.stack.substring(0, 500))
+    }
     return { track: null, coverArt: null }
   }
 }
@@ -763,7 +875,8 @@ router.get('/track/:trackId', async (req: Request, res: Response) => {
  */
 router.post('/add-from-google-drive', async (req: Request, res: Response) => {
   try {
-    const { url } = req.body
+    const { url, isCompilation: isCompilationParam } = req.body
+    const forceCompilation = Boolean(isCompilationParam) // Forcer le traitement comme compilation si la checkbox est cochée
 
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ error: 'URL Google Drive requise' })
@@ -1130,17 +1243,22 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         }
         
         console.log(`[GOOGLE DRIVE] ${audioFiles.length} fichier(s) audio trouvé(s) dans le dossier`)
+        console.log(`[GOOGLE DRIVE] Liste des fichiers audio:`, audioFiles.map((f: any) => `${f.name} (${f.id})`).slice(0, 5))
         
         // Vérifier si ce dossier Google Drive a déjà été ajouté
         // Chercher les albums qui proviennent de ce dossier
         const existingAlbumsFromFolder = albums.filter(a => a.googleDriveFolderId === fileId)
         const existingGoogleDriveIds = new Set<string>()
         
+        console.log(`[GOOGLE DRIVE] Recherche d'albums existants pour le dossier ID: ${fileId}`)
+        console.log(`[GOOGLE DRIVE] Albums existants trouvés: ${existingAlbumsFromFolder.length}`)
+        
         // Récupérer tous les IDs Google Drive des pistes existantes de ces albums
         if (existingAlbumsFromFolder.length > 0) {
           console.log(`[GOOGLE DRIVE] Dossier déjà ajouté, ${existingAlbumsFromFolder.length} album(s) existant(s)`)
           existingAlbumsFromFolder.forEach(album => {
             const albumTracks = tracks.filter(t => t.albumId === album.id)
+            console.log(`[GOOGLE DRIVE] Album "${album.title}": ${albumTracks.length} piste(s)`)
             albumTracks.forEach(track => {
               if (track.googleDriveId) {
                 existingGoogleDriveIds.add(track.googleDriveId)
@@ -1148,10 +1266,13 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
             })
           })
           console.log(`[GOOGLE DRIVE] ${existingGoogleDriveIds.size} fichier(s) déjà présent(s) dans la bibliothèque`)
+          console.log(`[GOOGLE DRIVE] IDs existants (premiers 5):`, Array.from(existingGoogleDriveIds).slice(0, 5))
         }
         
         // Filtrer uniquement les nouveaux fichiers (ceux qui ne sont pas déjà dans la bibliothèque)
         const newAudioFiles = audioFiles.filter((f: any) => !existingGoogleDriveIds.has(f.id))
+        
+        console.log(`[GOOGLE DRIVE] Fichiers après filtrage: ${newAudioFiles.length} nouveau(x) fichier(s) sur ${audioFiles.length} au total`)
         
         if (newAudioFiles.length === 0) {
           console.log(`[GOOGLE DRIVE] Tous les fichiers sont déjà dans la bibliothèque`)
@@ -1165,11 +1286,17 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         }
         
         console.log(`[GOOGLE DRIVE] ${newAudioFiles.length} nouveau(x) fichier(s) à ajouter sur ${audioFiles.length} au total`)
+        console.log(`[GOOGLE DRIVE] Nouveaux fichiers à traiter:`, newAudioFiles.map((f: any) => `${f.name} (${f.id})`).slice(0, 5))
         
         // Télécharger chaque fichier
         const albumsMap = new Map<string, Album>()
         const newTracks: Track[] = []
         const artistsMap = new Map<string, Artist>()
+        
+        // Compteurs pour le suivi du traitement
+        let processedCount = 0
+        let successCount = 0
+        let errorCount = 0
         
         const downloadFile = (fileId: string, dest: string): Promise<void> => {
           return new Promise((resolve, reject) => {
@@ -1233,9 +1360,11 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         }
         
         // Traiter les nouveaux fichiers : télécharger temporairement pour extraire les métadonnées, puis supprimer
+        console.log(`[GOOGLE DRIVE] Début du traitement de ${newAudioFiles.length} nouveau(x) fichier(s) audio`)
         const BATCH_SIZE = 3
         for (let i = 0; i < newAudioFiles.length; i += BATCH_SIZE) {
           const batch = newAudioFiles.slice(i, i + BATCH_SIZE)
+          console.log(`[GOOGLE DRIVE] Traitement du batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} fichier(s)`)
           await Promise.all(batch.map(async (file: any) => {
             let tempFilePath: string | null = null
             try {
@@ -1263,10 +1392,25 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
               }
               
               console.log(`[GOOGLE DRIVE] Extraction des métadonnées de ${file.name}...`)
-              const { track, coverArt } = await extractTrackMetadataAndCover(tempFilePath)
+              let track: Track | null = null
+              let coverArt: string | null = null
+              
+              try {
+                const result = await extractTrackMetadataAndCover(tempFilePath)
+                track = result.track
+                coverArt = result.coverArt
+              } catch (extractError: any) {
+                console.error(`[GOOGLE DRIVE] ✗ Erreur lors de l'extraction des métadonnées pour ${file.name}:`, extractError)
+                console.error(`[GOOGLE DRIVE] Stack trace:`, extractError.stack)
+                errorCount++
+                if (tempFilePath) {
+                  await fs.unlink(tempFilePath).catch(() => {})
+                }
+                return
+              }
               
               if (track) {
-                console.log(`[GOOGLE DRIVE] Métadonnées extraites: ${track.title} - ${track.artist} (${track.album})`)
+                console.log(`[GOOGLE DRIVE] ✓ Métadonnées extraites avec succès: ${track.title} - ${track.artist} (${track.album})`)
                 
                 // Stocker l'ID Google Drive au lieu du chemin local
                 // Le fichier sera servi directement depuis Google Drive
@@ -1280,11 +1424,33 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                 tempFilePath = null // Marquer comme supprimé
                 console.log(`[GOOGLE DRIVE] Fichier temporaire supprimé, lecture directe depuis Google Drive activée`)
                 
-                newTracks.push(track)
+                // Si forceCompilation est activé, recalculer l'albumId pour utiliser uniquement le nom de l'album
+                if (forceCompilation) {
+                  track.albumId = generateId(track.album)
+                  // Mettre à jour l'artiste de l'album pour "Various Artists" si ce n'est pas déjà le cas
+                  if (!track.albumArtist?.toLowerCase().includes('various') && 
+                      !track.albumArtist?.toLowerCase().includes('compilation')) {
+                    track.albumArtist = 'Various Artists'
+                    track.albumArtistId = generateId('Various Artists')
+                  }
+                }
                 
-                const albumKey = `${track.artistId}-${track.albumId}`
+                newTracks.push(track)
+                successCount++
+                
+                // Utiliser l'artiste de l'album (albumArtist) pour créer l'album, pas l'artiste de la piste
+                const albumArtistForAlbum = track.albumArtist || track.artist
+                const albumArtistIdForAlbum = track.albumArtistId || track.artistId
+                // Déterminer si c'est une compilation : soit via le paramètre, soit via détection automatique
+                const isCompilation = forceCompilation || 
+                                      albumArtistForAlbum.toLowerCase().includes('various') || 
+                                      albumArtistForAlbum.toLowerCase().includes('compilation') ||
+                                      albumArtistForAlbum.toLowerCase().includes('various artists') ||
+                                      albumArtistForAlbum.toLowerCase() === 'various'
+                // Pour les compilations, utiliser uniquement albumId comme clé
+                const albumKey = isCompilation ? track.albumId : `${albumArtistIdForAlbum}-${track.albumId}`
                 if (!albumsMap.has(albumKey)) {
-                  // Vérifier si l'album existe déjà dans la bibliothèque
+                  // Vérifier si l'album existe déjà dans la bibliothèque (chercher par albumId pour les compilations)
                   const existingAlbum = albums.find(a => a.id === track.albumId)
                   if (existingAlbum) {
                     // Utiliser l'album existant et ajouter le googleDriveFolderId s'il n'est pas déjà défini
@@ -1299,15 +1465,15 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                     albumsMap.set(albumKey, {
                       id: track.albumId,
                       title: track.album || 'Album Inconnu',
-                      artist: track.artist,
-                      artistId: track.artistId,
+                      artist: isCompilation ? 'Various Artists' : albumArtistForAlbum,
+                      artistId: isCompilation ? generateId('Various Artists') : albumArtistIdForAlbum,
                       year: track.year,
                       genre: track.genre,
                       trackCount: 1,
                       coverArt: coverArt ?? undefined,
                       googleDriveFolderId: fileId, // Associer le dossier Google Drive
                     })
-                    console.log(`[GOOGLE DRIVE] Nouvel album créé: ${track.album}`)
+                    console.log(`[GOOGLE DRIVE] Nouvel album créé: ${track.album} (compilation: ${isCompilation})`)
                   }
                 } else {
                   const album = albumsMap.get(albumKey)!
@@ -1330,28 +1496,52 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                   artist.trackCount = (artist.trackCount || 0) + 1
                 }
               } else {
-                console.error(`[GOOGLE DRIVE] Échec de l'extraction des métadonnées pour ${file.name}`)
-                console.error(`[GOOGLE DRIVE] Le fichier téléchargé n'est peut-être pas un fichier audio valide`)
+                console.error(`[GOOGLE DRIVE] ✗ Échec de l'extraction des métadonnées pour ${file.name}`)
+                console.error(`[GOOGLE DRIVE] Le fichier téléchargé n'est peut-être pas un fichier audio valide ou est corrompu`)
+                console.error(`[GOOGLE DRIVE] Taille du fichier: ${stats.size} octets, Extension: ${ext}`)
+                errorCount++
                 // Supprimer le fichier temporaire même en cas d'erreur
                 if (tempFilePath) {
                   await fs.unlink(tempFilePath).catch(() => {})
                 }
               }
             } catch (error: any) {
-              console.error(`[GOOGLE DRIVE] Erreur lors du traitement de ${file.name}:`, error)
+              console.error(`[GOOGLE DRIVE] ✗ Erreur lors du traitement de ${file.name}:`, error)
               console.error(`[GOOGLE DRIVE] Stack trace:`, error.stack)
+              errorCount++
               // Nettoyer le fichier temporaire en cas d'erreur
               if (tempFilePath) {
                 await fs.unlink(tempFilePath).catch(() => {})
               }
+            } finally {
+              processedCount++
             }
           }))
           
-          console.log(`[GOOGLE DRIVE] Téléchargés ${Math.min(i + BATCH_SIZE, newAudioFiles.length)}/${newAudioFiles.length} nouveaux fichiers`)
+          console.log(`[GOOGLE DRIVE] Progression: ${Math.min(i + BATCH_SIZE, newAudioFiles.length)}/${newAudioFiles.length} fichiers traités (${successCount} succès, ${errorCount} erreurs)`)
+        }
+        
+        console.log(`[GOOGLE DRIVE] Traitement terminé: ${processedCount} fichier(s) traité(s), ${successCount} succès, ${errorCount} erreur(s), ${newTracks.length} piste(s) extraite(s)`)
+        
+        if (newTracks.length === 0) {
+          console.error(`[GOOGLE DRIVE] ⚠️ ATTENTION: Aucune piste extraite après traitement de ${newAudioFiles.length} fichier(s)`)
+          console.error(`[GOOGLE DRIVE] Raisons possibles:`)
+          console.error(`[GOOGLE DRIVE] - Les fichiers ne sont pas des fichiers audio valides`)
+          console.error(`[GOOGLE DRIVE] - Les métadonnées ne peuvent pas être extraites`)
+          console.error(`[GOOGLE DRIVE] - Erreurs lors du téléchargement`)
+        } else {
+          console.log(`[GOOGLE DRIVE] ✓ ${newTracks.length} piste(s) extraite(s) avec succès`)
+          console.log(`[GOOGLE DRIVE] Exemples de pistes:`, newTracks.slice(0, 3).map(t => `${t.title} - ${t.artist}`))
         }
         
         const newAlbums = Array.from(albumsMap.values())
         const newArtists = Array.from(artistsMap.values())
+        
+        console.log(`[GOOGLE DRIVE] Albums créés/mis à jour: ${newAlbums.length}`)
+        console.log(`[GOOGLE DRIVE] Artistes créés/mis à jour: ${newArtists.length}`)
+        
+        // Compter les albums qui sont vraiment nouveaux (n'existaient pas avant)
+        let actuallyNewAlbumsCount = 0
         
         // Mettre à jour les albums existants ou ajouter les nouveaux
         newAlbums.forEach(newAlbum => {
@@ -1365,13 +1555,20 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
               trackCount: newAlbum.trackCount, // Utiliser le nouveau compteur qui inclut les nouvelles pistes
               googleDriveFolderId: newAlbum.googleDriveFolderId || existingAlbum.googleDriveFolderId,
             }
+            console.log(`[GOOGLE DRIVE] Album existant mis à jour: ${newAlbum.title}`)
           } else {
             albums.push(newAlbum)
+            actuallyNewAlbumsCount++
+            console.log(`[GOOGLE DRIVE] Nouvel album ajouté: ${newAlbum.title}`)
           }
         })
         
         // Ajouter seulement les nouvelles pistes (éviter les doublons)
+        console.log(`[GOOGLE DRIVE] Vérification des doublons pour ${newTracks.length} piste(s) extraite(s)`)
         const actuallyNewTracks: Track[] = []
+        let duplicateByGoogleDriveId = 0
+        let duplicateByTrackId = 0
+        
         newTracks.forEach(newTrack => {
           // Vérifier si la piste existe déjà par googleDriveId
           const existingByGoogleDriveId = tracks.find(t => t.googleDriveId === newTrack.googleDriveId)
@@ -1381,13 +1578,21 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
             if (!existingByTrackId) {
               tracks.push(newTrack)
               actuallyNewTracks.push(newTrack)
+              console.log(`[GOOGLE DRIVE] ✓ Nouvelle piste ajoutée: ${newTrack.title} - ${newTrack.artist}`)
             } else {
-              console.log(`[GOOGLE DRIVE] Piste déjà existante (par ID) ignorée: ${newTrack.title}`)
+              duplicateByTrackId++
+              console.log(`[GOOGLE DRIVE] ⚠️ Piste déjà existante (par ID) ignorée: ${newTrack.title} - ${newTrack.artist}`)
             }
           } else {
-            console.log(`[GOOGLE DRIVE] Piste déjà existante (par Google Drive ID) ignorée: ${newTrack.title}`)
+            duplicateByGoogleDriveId++
+            console.log(`[GOOGLE DRIVE] ⚠️ Piste déjà existante (par Google Drive ID) ignorée: ${newTrack.title} - ${newTrack.artist}`)
           }
         })
+        
+        console.log(`[GOOGLE DRIVE] Résultat du filtrage: ${actuallyNewTracks.length} nouvelle(s) piste(s), ${duplicateByGoogleDriveId} doublon(s) par Google Drive ID, ${duplicateByTrackId} doublon(s) par Track ID`)
+        
+        // Compter les artistes qui sont vraiment nouveaux
+        let actuallyNewArtistsCount = 0
         
         // Ajouter les nouveaux artistes
         newArtists.forEach(newArtist => {
@@ -1398,6 +1603,7 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
             artists[existingIndex].trackCount = artistTracks.length
           } else {
             artists.push(newArtist)
+            actuallyNewArtistsCount++
           }
         })
         
@@ -1426,14 +1632,39 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         
         const addedTracksCount = actuallyNewTracks.length
         
+        console.log(`[GOOGLE DRIVE] Résumé: ${actuallyNewAlbumsCount} nouvel(aux) album(s), ${addedTracksCount} nouvelle(s) piste(s), ${actuallyNewArtistsCount} nouvel(aux) artiste(s)`)
+        
+        // Construire le message avec les vrais compteurs
+        let message = ''
+        if (existingAlbumsFromFolder.length > 0) {
+          // Dossier déjà existant
+          if (addedTracksCount > 0) {
+            message = `${addedTracksCount} nouveau(x) morceau(x) ajouté(s) au dossier existant. ${audioFiles.length - newAudioFiles.length} morceau(x) déjà présent(s).`
+          } else {
+            message = `Tous les fichiers de ce dossier sont déjà présents dans la bibliothèque.`
+          }
+        } else {
+          // Nouveau dossier
+          if (actuallyNewAlbumsCount > 0 || addedTracksCount > 0) {
+            const parts: string[] = []
+            if (actuallyNewAlbumsCount > 0) {
+              parts.push(`${actuallyNewAlbumsCount} album(s) ajouté(s)`)
+            }
+            if (addedTracksCount > 0) {
+              parts.push(`${addedTracksCount} piste(s) ajoutée(s)`)
+            }
+            message = `${parts.join(', ')} depuis Google Drive`
+          } else {
+            message = `Aucun nouveau contenu ajouté. Les fichiers sont peut-être déjà présents dans la bibliothèque.`
+          }
+        }
+        
         res.json({
           success: true,
-          message: existingAlbumsFromFolder.length > 0 
-            ? `${addedTracksCount} nouveau(x) morceau(x) ajouté(s) au dossier existant. ${audioFiles.length - newAudioFiles.length} morceau(x) déjà présent(s).`
-            : `${newAlbums.length} album(s) ajouté(s), ${addedTracksCount} piste(s) ajoutée(s) depuis Google Drive`,
+          message: message,
           albums: newAlbums.length > 0 ? newAlbums : existingAlbumsFromFolder,
           tracksCount: addedTracksCount,
-          artistsCount: newArtists.length,
+          artistsCount: actuallyNewArtistsCount,
         })
         
         return
@@ -1499,6 +1730,17 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Le fichier téléchargé n\'est pas un fichier audio valide' })
       }
 
+      // Si forceCompilation est activé, recalculer l'albumId pour utiliser uniquement le nom de l'album
+      if (forceCompilation) {
+        track.albumId = generateId(track.album)
+        // Mettre à jour l'artiste de l'album pour "Various Artists" si ce n'est pas déjà le cas
+        if (!track.albumArtist?.toLowerCase().includes('various') && 
+            !track.albumArtist?.toLowerCase().includes('compilation')) {
+          track.albumArtist = 'Various Artists'
+          track.albumArtistId = generateId('Various Artists')
+        }
+      }
+
       // Stocker l'ID Google Drive au lieu du chemin local
       track.googleDriveId = fileId
       track.filePath = `gdrive://${fileId}` // Format spécial pour identifier les fichiers Google Drive
@@ -1532,7 +1774,17 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
       console.log(`[GOOGLE DRIVE] Fichier temporaire supprimé, lecture directe depuis Google Drive activée`)
 
       // Créer ou mettre à jour l'album
-      const albumKey = `${track.artistId}-${track.albumId}`
+      // Utiliser l'artiste de l'album (albumArtist) pour créer l'album, pas l'artiste de la piste
+      const albumArtistForAlbum = track.albumArtist || track.artist
+      const albumArtistIdForAlbum = track.albumArtistId || track.artistId
+      // Déterminer si c'est une compilation : soit via le paramètre, soit via détection automatique
+      const isCompilation = forceCompilation || 
+                            albumArtistForAlbum.toLowerCase().includes('various') || 
+                            albumArtistForAlbum.toLowerCase().includes('compilation') ||
+                            albumArtistForAlbum.toLowerCase().includes('various artists') ||
+                            albumArtistForAlbum.toLowerCase() === 'various'
+      // Pour les compilations, utiliser uniquement albumId comme clé
+      const albumKey = isCompilation ? track.albumId : `${albumArtistIdForAlbum}-${track.albumId}`
       const existingAlbumIndex = albums.findIndex(a => a.id === track.albumId)
       
       if (existingAlbumIndex >= 0) {
@@ -1544,8 +1796,8 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         albums.push({
           id: track.albumId,
           title: track.album || 'Album Inconnu',
-          artist: track.artist,
-          artistId: track.artistId,
+          artist: isCompilation ? 'Various Artists' : albumArtistForAlbum,
+          artistId: isCompilation ? generateId('Various Artists') : albumArtistIdForAlbum,
           year: track.year,
           genre: track.genre,
           trackCount: 1,
@@ -1799,6 +2051,437 @@ router.get('/export-data', async (req: Request, res: Response) => {
     res.status(500).json({ 
       error: 'Erreur lors de l\'export des données',
       details: error.message 
+    })
+  }
+})
+
+/**
+ * Route pour analyser les tags d'un fichier MP3
+ * Utile pour déboguer et voir tous les tags disponibles
+ */
+router.post('/analyze-tags', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucun fichier fourni' })
+    }
+
+    const filePath = req.file.path
+    console.log(`[ANALYZE] Analyse des tags du fichier: ${req.file.originalname}`)
+
+    try {
+      const metadata = await parseFile(filePath)
+      
+      // Extraire les tags communs (normalisés)
+      const commonTags = {
+        title: metadata.common.title,
+        artist: metadata.common.artist,
+        album: metadata.common.album,
+        albumArtist: metadata.common.albumartist,
+        genre: metadata.common.genre,
+        year: metadata.common.year,
+        track: metadata.common.track,
+        disk: metadata.common.disk,
+        comment: metadata.common.comment,
+        composer: metadata.common.composer,
+        conductor: metadata.common.conductor,
+        performer: metadata.common.performer,
+        remixer: metadata.common.remixer,
+        label: metadata.common.label,
+        bpm: metadata.common.bpm,
+        rating: metadata.common.rating,
+        picture: metadata.common.picture ? {
+          count: metadata.common.picture.length,
+          formats: metadata.common.picture.map(p => p.format)
+        } : null
+      }
+
+      // Extraire tous les tags natifs (ID3v2, etc.)
+      const nativeTags: any[] = []
+      if (metadata.native) {
+        for (const tag of metadata.native) {
+          nativeTags.push({
+            id: tag.id,
+            value: tag.value,
+            type: Array.isArray(tag.value) ? 'array' : typeof tag.value,
+            length: Array.isArray(tag.value) ? tag.value.length : undefined
+          })
+        }
+      }
+
+      // Informations sur le format
+      const formatInfo = {
+        container: metadata.format.container,
+        codec: metadata.format.codec,
+        codecProfile: metadata.format.codecProfile,
+        duration: metadata.format.duration,
+        bitrate: metadata.format.bitrate,
+        sampleRate: metadata.format.sampleRate,
+        bitsPerSample: metadata.format.bitsPerSample,
+        numberOfChannels: metadata.format.numberOfChannels,
+        lossless: metadata.format.lossless
+      }
+
+      // Tags ID3 spécifiques recherchés
+      const specificTags: Record<string, any> = {
+        TPE1: null, // Lead artist/Performer
+        TPE2: null, // Band/Orchestra/Accompaniment
+        TPE3: null, // Conductor/Performer refinement
+        TPE4: null, // Interpreted, remixed, or otherwise modified by
+        TALB: null, // Album
+        TIT2: null, // Title
+        TYER: null, // Year
+        TCON: null, // Genre
+        TRCK: null, // Track number
+        TPOS: null, // Disc number
+        TCOM: null, // Composer
+      }
+
+      // Chercher les tags spécifiques dans les tags natifs
+      if (metadata.native) {
+        for (const tag of metadata.native) {
+          if (tag.id in specificTags && tag.value) {
+            specificTags[tag.id as keyof typeof specificTags] = Array.isArray(tag.value) ? tag.value[0] : tag.value
+          }
+        }
+      }
+
+      const result = {
+        success: true,
+        filename: req.file.originalname,
+        commonTags,
+        nativeTags: {
+          count: nativeTags.length,
+          tags: nativeTags
+        },
+        specificTags,
+        formatInfo,
+        summary: {
+          title: metadata.common.title || 'Non défini',
+          artist: metadata.common.artist || 'Non défini',
+          album: metadata.common.album || 'Non défini',
+          albumArtist: metadata.common.albumartist || 'Non défini',
+          hasTPE1: specificTags.TPE1 !== null,
+          hasTPE2: specificTags.TPE2 !== null,
+          hasTPE3: specificTags.TPE3 !== null,
+          hasTPE4: specificTags.TPE4 !== null,
+          totalNativeTags: nativeTags.length
+        }
+      }
+
+      // Nettoyer le fichier temporaire
+      await fs.unlink(filePath).catch(() => {})
+
+      res.json(result)
+    } catch (error: any) {
+      // Nettoyer le fichier temporaire en cas d'erreur
+      await fs.unlink(filePath).catch(() => {})
+      
+      console.error('[ANALYZE] Erreur lors de l\'analyse:', error)
+      res.status(500).json({
+        error: 'Erreur lors de l\'analyse du fichier',
+        details: error.message
+      })
+    }
+  } catch (error: any) {
+    console.error('[ANALYZE] Erreur:', error)
+    res.status(500).json({
+      error: 'Erreur lors du traitement de la requête',
+      details: error.message
+    })
+  }
+})
+
+/**
+ * Route pour ré-analyser tous les fichiers existants et mettre à jour les tags TPE2, TPE3, TPE4
+ * Utile pour mettre à jour les pistes qui ont été ajoutées avant l'extraction de ces tags
+ */
+router.post('/reanalyze-tags', async (req: Request, res: Response) => {
+  try {
+    console.log('[REANALYZE] Début de la ré-analyse des tags pour toutes les pistes')
+    
+    let updatedCount = 0
+    let errorCount = 0
+    let skippedCount = 0
+    
+    // Traiter les pistes par batches pour éviter la surcharge
+    const BATCH_SIZE = 5
+    
+    for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
+      const batch = tracks.slice(i, i + BATCH_SIZE)
+      
+      await Promise.all(batch.map(async (track) => {
+        try {
+          // Vérifier si le fichier existe
+          if (!track.filePath) {
+            console.warn(`[REANALYZE] Piste ${track.id} n'a pas de filePath, ignorée`)
+            skippedCount++
+            return
+          }
+          
+          let filePathToAnalyze: string | null = null
+          let isTempFile = false
+          
+          // Gérer les fichiers Google Drive
+          if (track.filePath.startsWith('gdrive://')) {
+            if (!track.googleDriveId) {
+              console.warn(`[REANALYZE] Piste ${track.id} est sur Google Drive mais n'a pas de googleDriveId, ignorée (${track.title})`)
+              skippedCount++
+              return
+            }
+            
+            console.log(`[REANALYZE] Téléchargement temporaire depuis Google Drive: ${track.title} (ID: ${track.googleDriveId})`)
+            
+            // Télécharger temporairement le fichier depuis Google Drive
+            const https = require('https')
+            const http = require('http')
+            const downloadUrl = `https://drive.google.com/uc?export=download&id=${track.googleDriveId}`
+            filePathToAnalyze = path.join(uploadDir, `reanalyze-temp-${Date.now()}-${track.googleDriveId}`)
+            isTempFile = true
+            
+            try {
+              const downloadFile = (url: string, dest: string): Promise<void> => {
+                return new Promise((resolve, reject) => {
+                  const file = require('fs').createWriteStream(dest)
+                  let redirectCount = 0
+                  const MAX_REDIRECTS = 5
+                  
+                  const download = (downloadUrl: string): void => {
+                    if (redirectCount > MAX_REDIRECTS) {
+                      require('fs').unlink(dest, () => {})
+                      reject(new Error('Trop de redirections'))
+                      return
+                    }
+                    
+                    const protocol = downloadUrl.startsWith('https') ? https : http
+                    protocol.get(downloadUrl, { 
+                      headers: { 
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept': '*/*'
+                      } 
+                    }, (response: any) => {
+                      // Gérer les redirections
+                      if (response.statusCode === 302 || response.statusCode === 301 || response.statusCode === 303) {
+                        redirectCount++
+                        const location = response.headers.location
+                        if (location) {
+                          return download(location)
+                        }
+                      }
+                      
+                      // Vérifier le type de contenu (Google Drive peut retourner du HTML pour les fichiers non partagés)
+                      const contentType = response.headers['content-type'] || ''
+                      if (contentType.includes('text/html')) {
+                        require('fs').unlink(dest, () => {})
+                        reject(new Error('Le fichier Google Drive retourne du HTML au lieu d\'un fichier audio. Le fichier doit être partagé publiquement.'))
+                        return
+                      }
+                      
+                      if (response.statusCode !== 200) {
+                        require('fs').unlink(dest, () => {})
+                        reject(new Error(`Erreur HTTP: ${response.statusCode} - ${response.statusMessage}`))
+                        return
+                      }
+                      
+                      response.pipe(file)
+                      
+                      file.on('finish', () => {
+                        file.close()
+                        resolve()
+                      })
+                    }).on('error', (err: Error) => {
+                      require('fs').unlink(dest, () => {})
+                      reject(err)
+                    })
+                  }
+                  
+                  download(url)
+                })
+              }
+              
+              await downloadFile(downloadUrl, filePathToAnalyze)
+              console.log(`[REANALYZE] Fichier Google Drive téléchargé: ${filePathToAnalyze}`)
+            } catch (downloadError: any) {
+              console.error(`[REANALYZE] Erreur lors du téléchargement depuis Google Drive pour ${track.title}:`, downloadError.message)
+              console.error(`[REANALYZE] Stack trace:`, downloadError.stack)
+              // Nettoyer le fichier temporaire s'il a été créé
+              if (filePathToAnalyze && existsSync(filePathToAnalyze)) {
+                try {
+                  await fs.unlink(filePathToAnalyze)
+                } catch {}
+              }
+              skippedCount++
+              return
+            }
+          } else {
+            // Fichier local
+            if (!existsSync(track.filePath)) {
+              console.warn(`[REANALYZE] Fichier local non trouvé: ${track.filePath} (${track.title})`)
+              skippedCount++
+              return
+            }
+            filePathToAnalyze = track.filePath
+          }
+          
+          // Vérifier que filePathToAnalyze est défini
+          if (!filePathToAnalyze) {
+            console.warn(`[REANALYZE] filePathToAnalyze n'est pas défini pour ${track.title}`)
+            skippedCount++
+            return
+          }
+          
+          console.log(`[REANALYZE] Analyse de: ${track.title} - ${track.artist} (${filePathToAnalyze})`)
+          
+          // Ré-analyser le fichier pour extraire les tags
+          const metadata = await parseFile(filePathToAnalyze)
+          const common = metadata.common
+          
+          // Extraire l'Album Artist et les tags TPE2, TPE3, TPE4
+          const albumArtist = common.albumartist || undefined
+          let band: string | undefined = undefined
+          let conductor: string | undefined = undefined
+          let remixer: string | undefined = undefined
+          let albumArtistFromTPE2: string | undefined = undefined
+          
+          try {
+            if (metadata.native && Array.isArray(metadata.native)) {
+              for (const tag of metadata.native) {
+                try {
+                  if (tag && tag.id && tag.value) {
+                    if (tag.id === 'TPE2') {
+                      const tpe2Value = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                      band = tpe2Value
+                      // Si pas d'albumartist dans common, TPE2 est probablement l'Album Artist
+                      if (!albumArtist) {
+                        albumArtistFromTPE2 = tpe2Value
+                      }
+                    } else if (tag.id === 'TPE3') {
+                      conductor = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                    } else if (tag.id === 'TPE4') {
+                      remixer = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                    }
+                  }
+                } catch (tagError) {
+                  // Ignorer les erreurs sur un tag individuel
+                }
+              }
+            }
+          } catch (nativeError) {
+            console.warn(`[REANALYZE] Erreur lors de l'extraction des tags natifs pour ${track.title}:`, nativeError)
+          }
+          
+          // Déterminer l'artiste de l'album : Album Artist > TPE2 > Artist
+          const finalAlbumArtist = albumArtist || albumArtistFromTPE2 || track.artist
+          const albumArtistId = generateId(finalAlbumArtist)
+          
+          // Vérifier si des tags ont été trouvés ou si l'albumArtist a changé
+          const hasNewTags = band || conductor || remixer
+          const hasExistingTags = track.band || track.conductor || track.remixer
+          const albumArtistChanged = track.albumArtist !== finalAlbumArtist
+          
+          // Mettre à jour la piste si des tags ont été trouvés ou si l'albumArtist a changé
+          if (hasNewTags || albumArtistChanged) {
+            const oldTags = {
+              band: track.band,
+              conductor: track.conductor,
+              remixer: track.remixer,
+              albumArtist: track.albumArtist,
+              albumArtistId: track.albumArtistId
+            }
+            
+            track.band = band
+            track.albumArtist = finalAlbumArtist
+            track.albumArtistId = albumArtistId
+            track.conductor = conductor
+            track.remixer = remixer
+            
+            updatedCount++
+            console.log(`[REANALYZE] ✓ ${track.title} - Tags mis à jour:`, {
+              avant: oldTags,
+              après: { band, conductor, remixer, albumArtist: finalAlbumArtist, albumArtistId }
+            })
+          } else if (!hasExistingTags && !albumArtistChanged) {
+            // Pas de tags trouvés et pas de tags existants et pas de changement d'albumArtist
+            console.log(`[REANALYZE] - ${track.title} - Aucun tag TPE2/TPE3/TPE4 trouvé et albumArtist inchangé`)
+          }
+          
+          // Nettoyer le fichier temporaire si c'était un fichier Google Drive
+          if (isTempFile && filePathToAnalyze) {
+            try {
+              await fs.unlink(filePathToAnalyze)
+              console.log(`[REANALYZE] Fichier temporaire supprimé: ${filePathToAnalyze}`)
+            } catch (unlinkError) {
+              console.warn(`[REANALYZE] Impossible de supprimer le fichier temporaire: ${filePathToAnalyze}`)
+            }
+          }
+          
+        } catch (error: any) {
+          errorCount++
+          console.error(`[REANALYZE] ✗ Erreur lors de l'analyse de ${track.title}:`, error.message)
+          console.error(`[REANALYZE] Stack trace:`, error.stack)
+          
+          // Nettoyer le fichier temporaire en cas d'erreur
+          if (isTempFile && filePathToAnalyze) {
+            try {
+              await fs.unlink(filePathToAnalyze).catch(() => {})
+              console.log(`[REANALYZE] Fichier temporaire supprimé après erreur: ${filePathToAnalyze}`)
+            } catch (unlinkError) {
+              console.warn(`[REANALYZE] Impossible de supprimer le fichier temporaire après erreur: ${filePathToAnalyze}`)
+            }
+          }
+        }
+      }))
+      
+      console.log(`[REANALYZE] Progression: ${Math.min(i + BATCH_SIZE, tracks.length)}/${tracks.length} pistes traitées`)
+    }
+    
+    // Sauvegarder les données après mise à jour
+    try {
+      await saveAllData(albums, tracks, artists)
+      console.log('[REANALYZE] Données sauvegardées avec succès')
+    } catch (error) {
+      console.error('[REANALYZE] Erreur lors de la sauvegarde:', error)
+    }
+    
+    // Compter les raisons de skip
+    let googleDriveCount = 0
+    let fileNotFoundCount = 0
+    let noFilePathCount = 0
+    
+    // Analyser les pistes pour compter les raisons de skip (approximatif basé sur les logs)
+    tracks.forEach(track => {
+      if (!track.filePath) {
+        noFilePathCount++
+      } else if (track.filePath.startsWith('gdrive://')) {
+        googleDriveCount++
+      }
+    })
+    
+    const result = {
+      success: true,
+      message: `Ré-analyse terminée: ${updatedCount} piste(s) mise(s) à jour, ${skippedCount} ignorée(s), ${errorCount} erreur(s)`,
+      stats: {
+        total: tracks.length,
+        updated: updatedCount,
+        skipped: skippedCount,
+        errors: errorCount,
+        breakdown: {
+          googleDrive: googleDriveCount,
+          fileNotFound: fileNotFoundCount,
+          noFilePath: noFilePathCount
+        }
+      }
+    }
+    
+    console.log('[REANALYZE] Résultat final:', result)
+    res.json(result)
+    
+  } catch (error: any) {
+    console.error('[REANALYZE] Erreur lors de la ré-analyse:', error)
+    console.error('[REANALYZE] Stack trace:', error.stack)
+    res.status(500).json({
+      error: 'Erreur lors de la ré-analyse des tags',
+      details: error.message || 'Erreur inconnue',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }
 })

@@ -149,10 +149,9 @@ function SearchResultsPage() {
                     className="search-track-item"
                   >
                     <div className="search-track-info">
-                      <div className="search-track-title">{track.title}</div>
-                      <div className="search-track-subtitle">
-                        {track.artist} • {track.album}
-                        {track.genre && ` • ${track.genre}`}
+                      <div className="search-track-title-artist">
+                        <span className="search-track-title">{track.title}</span>
+                        <span className="search-track-artist">{track.artist}</span>
                       </div>
                     </div>
                     <i className="bi bi-play-circle search-track-play"></i>

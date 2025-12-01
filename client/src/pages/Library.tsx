@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Container, Row, Col, Alert, Dropdown, Modal, Button, Form } from 'react-bootstrap'
 import DragDropZone from '../components/DragDropZone'
 import AlbumGrid from '../components/AlbumGrid'
-import { getAlbums, scanMusicFiles, deleteAlbums, addMusicFromGoogleDrive, Album } from '../services/musicService'
+import { getAlbums, scanMusicFiles, deleteAlbums, addMusicFromGoogleDrive, reanalyzeTags, Album } from '../services/musicService'
 import './Home.css'
 
 type SortOption = 'alphabetical' | 'artist' | 'year' | 'recent'
@@ -16,7 +16,9 @@ function Library() {
   const [sortBy, setSortBy] = useState<SortOption>('alphabetical')
   const [showGoogleDriveModal, setShowGoogleDriveModal] = useState(false)
   const [googleDriveUrl, setGoogleDriveUrl] = useState('')
+  const [isCompilation, setIsCompilation] = useState(false)
   const [loadingGoogleDrive, setLoadingGoogleDrive] = useState(false)
+  const [reanalyzing, setReanalyzing] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedAlbums, setSelectedAlbums] = useState<Set<string>>(new Set())
 
@@ -103,7 +105,7 @@ function Library() {
     setMessage(null)
 
     try {
-      const result = await addMusicFromGoogleDrive(googleDriveUrl)
+      const result = await addMusicFromGoogleDrive(googleDriveUrl, isCompilation)
       
       if (result.success) {
         setMessage({
@@ -117,6 +119,7 @@ function Library() {
         // Fermer le modal et réinitialiser
         setShowGoogleDriveModal(false)
         setGoogleDriveUrl('')
+        setIsCompilation(false)
 
         // Cacher le message après 5 secondes
         setTimeout(() => setMessage(null), 5000)
@@ -134,6 +137,45 @@ function Library() {
       })
     } finally {
       setLoadingGoogleDrive(false)
+    }
+  }
+
+  const handleReanalyzeTags = async () => {
+    if (!window.confirm('Voulez-vous ré-analyser tous les fichiers pour mettre à jour les tags TPE2, TPE3, TPE4 ?\n\nCette opération peut prendre plusieurs minutes.')) {
+      return
+    }
+
+    setReanalyzing(true)
+    setMessage(null)
+
+    try {
+      const result = await reanalyzeTags()
+      
+      if (result.success) {
+        setMessage({
+          type: 'success',
+          text: result.message || 'Ré-analyse terminée avec succès',
+        })
+
+        // Recharger les albums pour voir les changements
+        await loadAlbums()
+
+        // Cacher le message après 10 secondes
+        setTimeout(() => setMessage(null), 10000)
+      } else {
+        setMessage({
+          type: 'error',
+          text: result.message || 'Erreur lors de la ré-analyse',
+        })
+      }
+    } catch (error: any) {
+      console.error('Erreur lors de la ré-analyse:', error)
+      setMessage({
+        type: 'error',
+        text: error.message || 'Erreur lors de la ré-analyse',
+      })
+    } finally {
+      setReanalyzing(false)
     }
   }
 
@@ -228,7 +270,7 @@ function Library() {
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h1 className="page-title mb-0">
                   <i className="bi bi-music-note-list me-2"></i>
-                  Ma bibliothèque : <span className="album-count">{albums.length}</span> albums
+                  Bibliothèque : <span className="album-count">{albums.length}</span> albums
                 </h1>
                 <div className="d-flex align-items-center gap-2">
                   <button
@@ -261,6 +303,19 @@ function Library() {
                     title="Ajouter depuis Google Drive"
                   >
                     <i className="bi bi-cloud-plus"></i>
+                  </button>
+                  <button
+                    className="reanalyze-button"
+                    onClick={handleReanalyzeTags}
+                    disabled={reanalyzing}
+                    aria-label="Ré-analyser les tags"
+                    title="Ré-analyser tous les fichiers pour mettre à jour les tags TPE2, TPE3, TPE4"
+                  >
+                    {reanalyzing ? (
+                      <span className="spinner-border spinner-border-sm" role="status"></span>
+                    ) : (
+                      <i className="bi bi-arrow-clockwise"></i>
+                    )}
                   </button>
                   <Dropdown>
                     <Dropdown.Toggle variant="outline-secondary" className="filter-dropdown">
@@ -328,6 +383,19 @@ function Library() {
                       Collez le lien de partage du fichier ou dossier Google Drive
                     </Form.Text>
                   </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Check
+                      type="checkbox"
+                      id="compilation-checkbox"
+                      label="Album compilation (regrouper toutes les pistes dans un seul album)"
+                      checked={isCompilation}
+                      onChange={(e) => setIsCompilation(e.target.checked)}
+                      disabled={loadingGoogleDrive}
+                    />
+                    <Form.Text className="text-muted">
+                      Cochez cette case si toutes les pistes doivent être regroupées dans un seul album, même si elles ont des artistes différents (ex: Various Artists)
+                    </Form.Text>
+                  </Form.Group>
                 </Form>
               </Modal.Body>
               <Modal.Footer>
@@ -336,6 +404,7 @@ function Library() {
                   onClick={() => {
                     setShowGoogleDriveModal(false)
                     setGoogleDriveUrl('')
+                    setIsCompilation(false)
                   }}
                   disabled={loadingGoogleDrive}
                 >

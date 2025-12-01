@@ -218,19 +218,71 @@
   padding-left: 8px;
 }
 
+.tracklist-item-title-artist {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+.tracklist-item-separator {
+  color: var(--spotify-light-gray);
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  margin: 0 4px;
+}
+
 .tracklist-item-title {
   font-size: 0.9375rem;
+  font-weight: 700;
   color: #ffffff;
-  margin-bottom: 4px;
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
 }
 
 .tracklist-item.playing .tracklist-item-title {
   color: var(--spotify-green);
 }
 
-.tracklist-item-artist {
-  font-size: 0.875rem;
+.tracklist-item-separator {
   color: var(--spotify-light-gray);
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  margin: 0 4px;
+}
+
+.tracklist-item.playing .tracklist-item-separator {
+  color: var(--spotify-green);
+  opacity: 0.8;
+}
+
+.tracklist-item-artist {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--spotify-light-gray);
+}
+
+.tracklist-item-artist-additional {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--spotify-light-gray);
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+.tracklist-item.playing .tracklist-item-artist-additional {
+  color: var(--spotify-green);
+  opacity: 0.8;
+  color: var(--spotify-light-gray);
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
 }
 
 .tracklist-item.playing .tracklist-item-artist {

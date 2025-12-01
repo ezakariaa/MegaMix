@@ -23,16 +23,22 @@ export interface Album {
 export interface Track {
   id: string
   title: string
-  artist: string
-  artistId: string
+  artist: string // Artiste de la piste individuelle (TPE1)
+  artistId: string // ID de l'artiste de la piste
   album: string
   albumId: string
+  albumArtist?: string // Artiste de l'album (Album Artist / TPE2 si utilisé comme Album Artist)
+  albumArtistId?: string // ID de l'artiste de l'album
   duration: number
   genre?: string
   filePath: string // Chemin local OU URL Google Drive
   googleDriveId?: string // ID Google Drive si le fichier vient de Google Drive
   trackNumber?: number
   year?: number
+  // Tags ID3 additionnels pour les artistes
+  band?: string // TPE2 - Band/Orchestra/Accompaniment (peut être Album Artist)
+  conductor?: string // TPE3 - Conductor/Performer refinement
+  remixer?: string // TPE4 - Interpreted, remixed, or otherwise modified by
 }
 
 export interface Genre {

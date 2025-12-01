@@ -27,7 +27,7 @@
 .navbar-brand {
   font-size: 1.5rem !important;
   color: #ffffff !important;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-weight: 700;
   text-decoration: none;
   display: flex;
@@ -47,6 +47,8 @@
 }
 
 .navbar-brand strong {
+  font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 800;
   background: linear-gradient(135deg, #f1c40f 0%, #d4a80d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

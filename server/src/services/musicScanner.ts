@@ -42,13 +42,20 @@ export async function scanMusicFolder(folderPath: string): Promise<{
               tracks.push(track)
 
               // Créer ou mettre à jour l'album
-              const albumKey = `${track.artistId}-${track.albumId}`
+              // Utiliser l'artiste de l'album (albumArtist) pour créer l'album, pas l'artiste de la piste
+              const albumArtistForAlbum = track.albumArtist || track.artist
+              const albumArtistIdForAlbum = track.albumArtistId || track.artistId
+              const isCompilation = albumArtistForAlbum.toLowerCase().includes('various') || 
+                                    albumArtistForAlbum.toLowerCase().includes('compilation') ||
+                                    albumArtistForAlbum.toLowerCase().includes('various artists') ||
+                                    albumArtistForAlbum.toLowerCase() === 'various'
+              const albumKey = isCompilation ? track.albumId : `${albumArtistIdForAlbum}-${track.albumId}`
               if (!albumsMap.has(albumKey)) {
                 albumsMap.set(albumKey, {
                   id: track.albumId,
                   title: track.album || 'Album Inconnu',
-                  artist: track.artist,
-                  artistId: track.artistId,
+                  artist: albumArtistForAlbum, // Artiste de l'album (Album Artist)
+                  artistId: albumArtistIdForAlbum,
                   year: track.year,
                   genre: track.genre,
                   trackCount: 1,
@@ -130,27 +137,87 @@ async function extractTrackMetadata(filePath: string): Promise<Track | null> {
     const metadata = await parseFile(filePath)
     const common = metadata.common
 
-    const artist = common.artist || 'Artiste Inconnu'
+    // Artist (TPE1) = Artiste de la piste individuelle
+    const trackArtist = common.artist || 'Artiste Inconnu'
+    // Album Artist (TPE2 ou common.albumartist) = Artiste de l'album (pour les compilations)
+    const albumArtist = common.albumartist || undefined
     const album = common.album || path.basename(path.dirname(filePath))
     const title = common.title || path.basename(filePath, path.extname(filePath))
 
-    // Générer des IDs simples basés sur les noms
-    const artistId = generateId(artist)
-    const albumId = generateId(`${artist}-${album}`)
-    const trackId = generateId(`${artist}-${album}-${title}`)
+    // Extraire les tags ID3 additionnels (TPE2, TPE3, TPE4) depuis metadata.native
+    let band: string | undefined = undefined // TPE2 (peut être Album Artist ou Band)
+    let conductor: string | undefined = undefined // TPE3
+    let remixer: string | undefined = undefined // TPE4
+    
+    // Si TPE2 existe et qu'il n'y a pas d'albumartist dans common, utiliser TPE2 comme Album Artist
+    let albumArtistFromTPE2: string | undefined = undefined
+
+    try {
+      if (metadata.native && Array.isArray(metadata.native)) {
+        // Chercher dans les tags natifs
+        for (const tag of metadata.native) {
+          try {
+            if (tag && tag.id && tag.value) {
+              if (tag.id === 'TPE2') {
+                // TPE2 - Band/Orchestra/Accompaniment (ou Album Artist dans certains cas)
+                const tpe2Value = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+                band = tpe2Value
+                // Si pas d'albumartist dans common, TPE2 est probablement l'Album Artist
+                if (!albumArtist) {
+                  albumArtistFromTPE2 = tpe2Value
+                }
+              } else if (tag.id === 'TPE3') {
+                // TPE3 - Conductor/Performer refinement
+                conductor = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+              } else if (tag.id === 'TPE4') {
+                // TPE4 - Interpreted, remixed, or otherwise modified by
+                remixer = Array.isArray(tag.value) ? tag.value[0] : String(tag.value)
+              }
+            }
+          } catch (tagError) {
+            // Ignorer les erreurs sur un tag individuel et continuer
+            console.warn(`[METADATA] Erreur lors de l'extraction du tag ${tag?.id}:`, tagError)
+          }
+        }
+      }
+    } catch (nativeError) {
+      // Si l'extraction des tags natifs échoue, on continue sans ces tags additionnels
+      console.warn(`[METADATA] Erreur lors de l'extraction des tags natifs (non bloquant):`, nativeError)
+    }
+
+    // Déterminer l'artiste de l'album : Album Artist > TPE2 > Artist
+    const finalAlbumArtist = albumArtist || albumArtistFromTPE2 || trackArtist
+    
+    // Générer des IDs
+    const trackArtistId = generateId(trackArtist) // ID pour l'artiste de la piste
+    const albumArtistId = generateId(finalAlbumArtist) // ID pour l'artiste de l'album
+    
+    // Pour les albums compilation (Various Artists, Compilation, etc.), utiliser uniquement le nom de l'album
+    // Sinon, utiliser albumArtist-album pour éviter les conflits
+    const isCompilation = finalAlbumArtist.toLowerCase().includes('various') || 
+                          finalAlbumArtist.toLowerCase().includes('compilation') ||
+                          finalAlbumArtist.toLowerCase().includes('various artists') ||
+                          finalAlbumArtist.toLowerCase() === 'various'
+    const albumId = isCompilation ? generateId(album) : generateId(`${finalAlbumArtist}-${album}`)
+    const trackId = generateId(`${trackArtist}-${album}-${title}`)
 
     return {
       id: trackId,
       title,
-      artist,
-      artistId,
+      artist: trackArtist, // Artiste de la piste individuelle (TPE1)
+      artistId: trackArtistId, // ID de l'artiste de la piste
       album,
       albumId,
+      albumArtist: finalAlbumArtist, // Artiste de l'album (Album Artist)
+      albumArtistId: albumArtistId, // ID de l'artiste de l'album
       duration: Math.round(metadata.format.duration || 0),
       genre: common.genre?.[0],
       filePath,
       trackNumber: common.track?.no || undefined,
       year: common.year || undefined,
+      band,
+      conductor,
+      remixer,
     }
   } catch (error) {
     console.error(`Erreur lors de l'extraction des métadonnées de ${filePath}:`, error)

@@ -26,15 +26,21 @@ export interface Album {
 export interface Track {
   id: string
   title: string
-  artist: string
-  artistId: string
+  artist: string // Artiste de la piste individuelle (TPE1)
+  artistId: string // ID de l'artiste de la piste
   album: string
   albumId: string
+  albumArtist?: string // Artiste de l'album (Album Artist / TPE2 si utilisé comme Album Artist)
+  albumArtistId?: string // ID de l'artiste de l'album
   duration: number
   genre?: string
   filePath: string
   trackNumber?: number
   year?: number
+  // Tags ID3 additionnels pour les artistes
+  band?: string // TPE2 - Band/Orchestra/Accompaniment (peut être Album Artist)
+  conductor?: string // TPE3 - Conductor/Performer refinement
+  remixer?: string // TPE4 - Interpreted, remixed, or otherwise modified by
 }
 
 export interface Artist {
@@ -526,11 +532,40 @@ export async function deleteAlbums(albumIds: string[]): Promise<void> {
 /**
  * Ajoute de la musique depuis un lien Google Drive
  */
-export async function addMusicFromGoogleDrive(url: string): Promise<GoogleDriveAddResult> {
+/**
+ * Ré-analyse tous les fichiers existants pour mettre à jour les tags TPE2, TPE3, TPE4
+ */
+export async function reanalyzeTags(): Promise<{ success: boolean; message: string; stats: any }> {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/music/reanalyze-tags`,
+      {},
+      { timeout: 600000 } // 10 minutes pour la ré-analyse complète
+    )
+    
+    // Invalider le cache après ré-analyse
+    if (response.data.success) {
+      removeCached('albums')
+      removeCached('tracks')
+      removeCached('artists')
+    }
+    
+    return response.data
+  } catch (error: any) {
+    console.error('Erreur lors de la ré-analyse:', error)
+    return {
+      success: false,
+      message: error.response?.data?.error || error.message || 'Erreur lors de la ré-analyse',
+      stats: {}
+    }
+  }
+}
+
+export async function addMusicFromGoogleDrive(url: string, isCompilation: boolean = false): Promise<GoogleDriveAddResult> {
   try {
     const response = await axios.post<GoogleDriveAddResult>(
       `${API_BASE_URL}/music/add-from-google-drive`,
-      { url },
+      { url, isCompilation },
       { timeout: 300000 } // 5 minutes pour le téléchargement
     )
     

@@ -124,7 +124,8 @@
 
 .selection-button,
 .delete-button,
-.google-drive-button {
+.google-drive-button,
+.reanalyze-button {
   background-color: var(--spotify-dark-gray);
   border: 1px solid var(--spotify-gray);
   color: #ffffff;
@@ -140,7 +141,8 @@
   height: 40px;
 }
 
-.google-drive-button:hover {
+.google-drive-button:hover,
+.reanalyze-button:hover {
   background-color: var(--spotify-gray);
   border-color: var(--spotify-green);
   color: var(--spotify-green);
@@ -165,7 +167,8 @@
 
 .selection-button:active,
 .delete-button:active,
-.google-drive-button:active {
+.google-drive-button:active,
+.reanalyze-button:active {
   transform: scale(0.95);
 }
 
@@ -369,7 +372,8 @@
 
   .selection-button,
   .delete-button,
-  .google-drive-button {
+  .google-drive-button,
+  .reanalyze-button {
     width: 36px;
     height: 36px;
     font-size: 1rem;

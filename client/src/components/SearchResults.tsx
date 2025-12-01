@@ -128,9 +128,9 @@ function SearchResults({ results, searchQuery = '', onClose }: SearchResultsProp
                 onClick={onClose}
               >
                 <div className="search-results-track-info">
-                  <div className="search-results-track-title">{track.title}</div>
-                  <div className="search-results-track-subtitle">
-                    {track.artist} • {track.album}
+                  <div className="search-results-track-title-artist">
+                    <span className="search-results-track-title">{track.title}</span>
+                    <span className="search-results-track-artist">{track.artist}</span>
                   </div>
                 </div>
                 <i className="bi bi-play-circle search-results-track-play"></i>

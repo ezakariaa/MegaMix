@@ -15,6 +15,7 @@ import Playlists from './pages/Playlists'
 import Library from './pages/Library'
 import AlbumDetail from './pages/AlbumDetail'
 import SearchResultsPage from './pages/SearchResultsPage'
+import AnalyzeTags from './pages/AnalyzeTags'
 import './App.css'
 
 function App() {
@@ -50,6 +51,7 @@ function App() {
                     <Route path="/genres" element={<Genres />} />
                     <Route path="/playlists" element={<Playlists />} />
                     <Route path="/search" element={<SearchResultsPage />} />
+                    <Route path="/analyze-tags" element={<AnalyzeTags />} />
                   </Routes>
                 </div>
               </main>

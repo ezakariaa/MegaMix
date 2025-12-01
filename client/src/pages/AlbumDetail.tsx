@@ -42,6 +42,14 @@ function AlbumDetail() {
         setAlbum(foundAlbum)
         // Charger les pistes de l'album
         const albumTracks = await getAlbumTracks(albumId)
+        // Log pour déboguer les tags
+        console.log('[ALBUM DETAIL] Pistes chargées:', albumTracks.map(t => ({
+          title: t.title,
+          artist: t.artist,
+          band: t.band,
+          conductor: t.conductor,
+          remixer: t.remixer
+        })))
         setTracks(albumTracks)
       } else {
         console.error('Album non trouvé')
@@ -209,8 +217,25 @@ function AlbumDetail() {
                   )}
                 </div>
                 <div className="tracklist-item-info">
-                  <div className="tracklist-item-title">{track.title}</div>
-                  <div className="tracklist-item-artist">{track.artist}</div>
+                  <div className="tracklist-item-title-artist">
+                    <span className="tracklist-item-title">{track.title}</span>
+                    {/* Toujours afficher l'artiste de la piste (TPE1) */}
+                    <span className="tracklist-item-separator"> - </span>
+                    <span className="tracklist-item-artist">{track.artist}</span>
+                    {/* Afficher les artistes additionnels (TPE2, TPE3, TPE4) si présents */}
+                    {(track.band || track.conductor || track.remixer) && (
+                      <>
+                        <span className="tracklist-item-separator"> • </span>
+                        <span className="tracklist-item-artist-additional">
+                          {[
+                            track.band && `Groupe: ${track.band}`,
+                            track.conductor && `Chef: ${track.conductor}`,
+                            track.remixer && `Remix: ${track.remixer}`
+                          ].filter(Boolean).join(', ')}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="tracklist-item-duration">
                   {formatDuration(track.duration)}
