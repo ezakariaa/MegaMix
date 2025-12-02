@@ -45,7 +45,30 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }))
 
 // Routes de base
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'MuZak Server is running' })
+  res.json({ 
+    status: 'OK', 
+    message: 'MuZak Server is running',
+    port: PORT,
+    host: HOST,
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  })
+})
+
+// Route racine pour diagnostiquer
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'MuZak API Server',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      albums: '/api/music/albums',
+      tracks: '/api/music/tracks',
+      artists: '/api/music/artists'
+    },
+    port: PORT,
+    host: HOST
+  })
 })
 
 // Routes API
