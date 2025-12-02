@@ -155,11 +155,15 @@ export async function scanMusicFiles(
  * Récupère tous les albums avec cache
  */
 export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
+  const url = `${API_BASE_URL}/music/albums`
+  console.log('[API] Requête GET vers:', url)
+  
   try {
-    const response = await axios.get<{ albums: Album[] }>(`${API_BASE_URL}/music/albums`, {
-      timeout: 10000, // Augmenté à 10 secondes pour Railway
+    const response = await axios.get<{ albums: Album[] }>(url, {
+      timeout: 30000, // Augmenté à 30 secondes pour Railway
     })
     const albums = response.data.albums
+    console.log('[API] Réponse reçue:', albums.length, 'albums')
     
     // Mettre en cache seulement si succès
     if (useCache && albums.length > 0) {
@@ -168,11 +172,19 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     
     return albums
   } catch (error: any) {
+    console.error('[API] Erreur lors de la récupération des albums:', {
+      message: error.message,
+      code: error.code,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url
+    })
+    
     // Si erreur réseau, essayer de retourner le cache même expiré
     if (useCache) {
       const cached = getCached<Album[]>('albums')
       if (cached && cached.length > 0) {
-        console.warn('Utilisation du cache en raison d\'une erreur réseau')
+        console.warn('[API] Utilisation du cache en raison d\'une erreur réseau')
         // Rafraîchir en arrière-plan
         refreshAlbumsInBackground()
         return cached
@@ -181,11 +193,11 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      console.warn('Serveur backend non disponible:', error.message)
+      console.warn('[API] Serveur backend non disponible:', error.message)
     } else {
-      console.error('Erreur lors de la récupération des albums:', error)
+      console.error('[API] Erreur lors de la récupération des albums:', error)
     }
-    return []
+    throw error // Propager l'erreur pour que le composant puisse l'afficher
   }
 }
 

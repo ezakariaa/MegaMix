@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Artist, getArtistAlbums, getAlbumTracks, getAlbums, Album } from '../services/musicService'
+import { Artist, getArtistAlbums, getAlbumTracks } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './AlbumGrid.css' // Réutiliser les styles d'AlbumGrid
 
@@ -12,22 +12,6 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   const navigate = useNavigate()
   const { playAlbum, currentTrack, isPlaying, togglePlay } = usePlayer()
   const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null)
-  const [allAlbums, setAllAlbums] = useState<Album[]>([])
-
-  // Charger tous les albums pour trouver les couvertures
-  useEffect(() => {
-    getAlbums().then(setAllAlbums).catch(console.error)
-  }, [])
-
-  // Créer un map pour trouver rapidement la couverture du premier album de chaque artiste
-  const artistCoverMap = useMemo(() => {
-    const map = new Map<string, string | null>()
-    artists.forEach(artist => {
-      const firstAlbum = allAlbums.find(album => album.artistId === artist.id)
-      map.set(artist.id, firstAlbum?.coverArt || null)
-    })
-    return map
-  }, [artists, allAlbums])
 
   const handleArtistClick = (artist: Artist) => {
     // Naviguer vers la page de recherche avec le nom de l'artiste
@@ -94,8 +78,8 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   return (
     <div className="album-grid">
       {artists.map((artist) => {
-        // Utiliser la couverture du premier album de l'artiste
-        const artistImage = artistCoverMap.get(artist.id)
+        // Utiliser UNIQUEMENT la photo d'artiste (pas de fallback vers couverture d'album)
+        const artistImage = artist.coverArt
 
         return (
           <div 

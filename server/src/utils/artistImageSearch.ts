@@ -10,7 +10,7 @@ export async function searchArtistBackground(artistName: string): Promise<string
     return null
   }
 
-  // PRIORITÉ 1 : Essayer Fanart.tv artistbackground en premier (bannière d'artiste)
+  // PRIORITÉ 1 : Essayer Fanart.tv artistbackground (bannière d'artiste)
   try {
     const fanartBackground = await searchFanartBackground(artistName)
     if (fanartBackground && await isImageAccessible(fanartBackground)) {
@@ -94,18 +94,21 @@ export async function searchArtistBackground(artistName: string): Promise<string
 
 /**
  * Recherche l'image d'un artiste sur internet via plusieurs sources
- * Sources utilisées (dans l'ordre) :
+ * Sources utilisées (dans l'ordre) - UNIQUEMENT des vraies photos d'artistes :
  * 1. Last.fm API (gratuite, images d'artistes)
  * 2. Fanart.tv (meilleures images d'artistes, nécessite MusicBrainz ID)
- * 3. iTunes Search API (gratuite, couvertures d'albums)
- * 4. MusicBrainz (gratuite)
+ * 3. Deezer (photos d'artistes)
+ * 4. Spotify (photos d'artistes)
+ * 5. Discogs (photos d'artistes)
+ * 
+ * NOTE: iTunes et MusicBrainz ne sont PAS utilisés car ils retournent des couvertures d'albums, pas des photos d'artistes
  */
 export async function searchArtistImage(artistName: string): Promise<string | null> {
   if (!artistName || artistName.trim() === '') {
     return null
   }
 
-  // Essayer Last.fm en premier
+  // PRIORITÉ 1 : Essayer Last.fm
   try {
     const lastFmImage = await searchLastFm(artistName)
     if (lastFmImage) {
@@ -127,26 +130,38 @@ export async function searchArtistImage(artistName: string): Promise<string | nu
     console.warn(`[ARTIST IMAGE] Erreur Fanart.tv pour ${artistName}:`, error)
   }
 
-  // Essayer iTunes en troisième
+  // Ne pas utiliser iTunes car il retourne des couvertures d'albums, pas des photos d'artistes
+  // Essayer Deezer en troisième (retourne des photos d'artistes)
   try {
-    const iTunesImage = await searchiTunes(artistName)
-    if (iTunesImage) {
-      console.log(`[ARTIST IMAGE] Image trouvée sur iTunes pour: ${artistName}`)
-      return iTunesImage
+    const deezerImage = await searchDeezer(artistName)
+    if (deezerImage) {
+      console.log(`[ARTIST IMAGE] Image trouvée sur Deezer pour: ${artistName}`)
+      return deezerImage
     }
   } catch (error) {
-    console.warn(`[ARTIST IMAGE] Erreur iTunes pour ${artistName}:`, error)
+    console.warn(`[ARTIST IMAGE] Erreur Deezer pour ${artistName}:`, error)
   }
 
-  // Essayer MusicBrainz en dernier
+  // Essayer Spotify en quatrième (retourne des photos d'artistes)
   try {
-    const musicBrainzImage = await searchMusicBrainz(artistName)
-    if (musicBrainzImage) {
-      console.log(`[ARTIST IMAGE] Image trouvée sur MusicBrainz pour: ${artistName}`)
-      return musicBrainzImage
+    const spotifyImage = await searchSpotify(artistName)
+    if (spotifyImage) {
+      console.log(`[ARTIST IMAGE] Image trouvée sur Spotify pour: ${artistName}`)
+      return spotifyImage
     }
   } catch (error) {
-    console.warn(`[ARTIST IMAGE] Erreur MusicBrainz pour ${artistName}:`, error)
+    console.warn(`[ARTIST IMAGE] Erreur Spotify pour ${artistName}:`, error)
+  }
+
+  // Essayer Discogs en dernier (retourne des photos d'artistes)
+  try {
+    const discogsImage = await searchDiscogs(artistName)
+    if (discogsImage) {
+      console.log(`[ARTIST IMAGE] Image trouvée sur Discogs pour: ${artistName}`)
+      return discogsImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Discogs pour ${artistName}:`, error)
   }
 
   console.log(`[ARTIST IMAGE] Aucune image trouvée pour: ${artistName}`)
@@ -158,7 +173,7 @@ export async function searchArtistImage(artistName: string): Promise<string | nu
  * Note: Last.fm nécessite une clé API. On peut utiliser une clé publique de démo
  * ou permettre à l'utilisateur de configurer sa propre clé via LASTFM_API_KEY
  */
-function searchLastFm(artistName: string): Promise<string | null> {
+export function searchLastFm(artistName: string): Promise<string | null> {
   return new Promise((resolve, reject) => {
     const encodedName = encodeURIComponent(artistName)
     // Utiliser la clé API depuis les variables d'environnement ou une clé de démo
@@ -351,13 +366,18 @@ function searchFanartThumb(artistName: string): Promise<string | null> {
               
               // Si l'URL ne commence pas par http, construire l'URL complète
               if (imageUrl && !imageUrl.startsWith('http')) {
-                // Format: https://images.fanart.tv/fanart/music/{musicbrainz-id}/artistthumb/{filename}
-                imageUrl = `https://images.fanart.tv/fanart/music/${musicBrainzId}/artistthumb/${imageUrl}`
+                // Format: https://assets.fanart.tv/fanart/music/{musicbrainz-id}/artistthumb/{filename}
+                imageUrl = `https://assets.fanart.tv/fanart/music/${musicBrainzId}/artistthumb/${imageUrl}`
               }
               
               // Si l'URL est relative (commence par /), ajouter le domaine
               if (imageUrl && imageUrl.startsWith('/')) {
-                imageUrl = `https://images.fanart.tv${imageUrl}`
+                imageUrl = `https://assets.fanart.tv${imageUrl}`
+              }
+              
+              // Si l'URL contient images.fanart.tv, remplacer par assets.fanart.tv
+              if (imageUrl && imageUrl.includes('images.fanart.tv')) {
+                imageUrl = imageUrl.replace('images.fanart.tv', 'assets.fanart.tv')
               }
               
               console.log(`[FANART THUMB] URL de l'image: ${imageUrl}`)
@@ -443,18 +463,18 @@ function searchFanartBackground(artistName: string): Promise<string | null> {
               
               // Si l'URL ne commence pas par http, construire l'URL complète
               if (imageUrl && !imageUrl.startsWith('http')) {
-                // Format: https://images.fanart.tv/fanart/music/{musicbrainz-id}/artistbackground/{filename}
-                imageUrl = `https://images.fanart.tv/fanart/music/${musicBrainzId}/artistbackground/${imageUrl}`
+                // Format: https://assets.fanart.tv/fanart/music/{musicbrainz-id}/artistbackground/{filename}
+                imageUrl = `https://assets.fanart.tv/fanart/music/${musicBrainzId}/artistbackground/${imageUrl}`
               }
               
               // Si l'URL est relative (commence par /), ajouter le domaine
               if (imageUrl && imageUrl.startsWith('/')) {
-                imageUrl = `https://images.fanart.tv${imageUrl}`
+                imageUrl = `https://assets.fanart.tv${imageUrl}`
               }
               
-              // Si l'URL contient assets.fanart.tv, remplacer par images.fanart.tv
-              if (imageUrl && imageUrl.includes('assets.fanart.tv')) {
-                imageUrl = imageUrl.replace('assets.fanart.tv', 'images.fanart.tv')
+              // Si l'URL contient images.fanart.tv, remplacer par assets.fanart.tv
+              if (imageUrl && imageUrl.includes('images.fanart.tv')) {
+                imageUrl = imageUrl.replace('images.fanart.tv', 'assets.fanart.tv')
               }
               
               console.log(`[FANART] URL finale de l'image bannière: ${imageUrl}`)
@@ -524,19 +544,54 @@ function searchFanart(artistName: string): Promise<string | null> {
           try {
             const json = JSON.parse(data)
             // Fanart.tv retourne plusieurs types d'images : artistbackground, artistthumb, hdmusiclogo, etc.
-            // On préfère artistbackground (bannière) ou artistthumb (photo de l'artiste)
-            if (json.artistbackground && json.artistbackground.length > 0) {
-              // Prendre la première bannière (généralement la meilleure)
-              const imageUrl = json.artistbackground[0].url
-              if (imageUrl) {
+            // On préfère artistthumb (photo de l'artiste) pour la page Artistes
+            if (json.artistthumb && json.artistthumb.length > 0) {
+              // Prendre la première photo de l'artiste (ou la meilleure selon les likes)
+              const thumbs = json.artistthumb.sort((a: any, b: any) => {
+                return (b.likes || 0) - (a.likes || 0)
+              })
+              let imageUrl = thumbs[0].url
+              
+              // Si l'URL ne commence pas par http, construire l'URL complète
+              if (imageUrl && !imageUrl.startsWith('http')) {
+                imageUrl = `https://assets.fanart.tv/fanart/music/${musicBrainzId}/artistthumb/${imageUrl}`
+              }
+              
+              // Si l'URL est relative (commence par /), ajouter le domaine
+              if (imageUrl && imageUrl.startsWith('/')) {
+                imageUrl = `https://assets.fanart.tv${imageUrl}`
+              }
+              
+              // Si l'URL contient images.fanart.tv, remplacer par assets.fanart.tv
+              if (imageUrl && imageUrl.includes('images.fanart.tv')) {
+                imageUrl = imageUrl.replace('images.fanart.tv', 'assets.fanart.tv')
+              }
+              
+              if (imageUrl && imageUrl.startsWith('http')) {
                 resolve(imageUrl)
                 return
               }
             }
-            if (json.artistthumb && json.artistthumb.length > 0) {
-              // Sinon, prendre la première photo de l'artiste
-              const imageUrl = json.artistthumb[0].url
-              if (imageUrl) {
+            if (json.artistbackground && json.artistbackground.length > 0) {
+              // Sinon, prendre la première bannière
+              let imageUrl = json.artistbackground[0].url
+              
+              // Si l'URL ne commence pas par http, construire l'URL complète
+              if (imageUrl && !imageUrl.startsWith('http')) {
+                imageUrl = `https://assets.fanart.tv/fanart/music/${musicBrainzId}/artistbackground/${imageUrl}`
+              }
+              
+              // Si l'URL est relative (commence par /), ajouter le domaine
+              if (imageUrl && imageUrl.startsWith('/')) {
+                imageUrl = `https://assets.fanart.tv${imageUrl}`
+              }
+              
+              // Si l'URL contient images.fanart.tv, remplacer par assets.fanart.tv
+              if (imageUrl && imageUrl.includes('images.fanart.tv')) {
+                imageUrl = imageUrl.replace('images.fanart.tv', 'assets.fanart.tv')
+              }
+              
+              if (imageUrl && imageUrl.startsWith('http')) {
                 resolve(imageUrl)
                 return
               }

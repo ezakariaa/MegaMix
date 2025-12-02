@@ -7,7 +7,7 @@ import { scanMusicFolder } from '../services/musicScanner'
 import { parseFile } from 'music-metadata'
 import { Album, Track, Artist } from '../types'
 import { loadAllData, saveAllData, saveAlbums, saveTracks, saveArtists } from '../utils/dataPersistence'
-import { searchArtistImage, searchArtistBackground } from '../utils/artistImageSearch'
+import { searchArtistImage, searchArtistBackground, searchLastFm } from '../utils/artistImageSearch'
 import { getArtistBiography } from '../utils/artistBiography'
 import { syncToKoyeb } from '../utils/syncToKoyeb'
 
@@ -558,7 +558,64 @@ router.get('/artists', (req: Request, res: Response) => {
       albumCount,
     }
   })
+  
+  // Envoyer la réponse immédiatement
   res.json({ artists: artistsWithAlbumCount })
+  
+  // Rechercher les photos d'artistes en arrière-plan pour les artistes qui n'en ont pas
+  // (après l'envoi de la réponse pour ne pas bloquer)
+  setTimeout(() => {
+    const artistsWithoutImage = artistsWithAlbumCount
+      .filter(artist => !artist.coverArt)
+      .slice(0, 5) // Augmenter à 5 artistes à la fois pour plus de rapidité
+    
+    if (artistsWithoutImage.length === 0) {
+      return // Tous les artistes ont déjà une photo
+    }
+    
+    // Rechercher en parallèle pour plus de rapidité
+    Promise.all(
+      artistsWithoutImage.map(async (artist) => {
+        try {
+          // Rechercher une photo d'artiste (pas une bannière)
+          // Essayer Last.fm en premier (plus rapide)
+          let artistImage: string | null = null
+          
+          try {
+            artistImage = await Promise.race([
+              searchLastFm(artist.name),
+              new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 2000)) // Timeout de 2 secondes
+            ]) as string | null
+          } catch (error) {
+            // Si Last.fm échoue rapidement, essayer la recherche complète
+            artistImage = await searchArtistImage(artist.name)
+          }
+          
+          if (artistImage) {
+            // Utiliser le proxy pour éviter les problèmes CORS
+            const encodedUrl = encodeURIComponent(artistImage)
+            const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
+            
+            // Mettre à jour l'artiste dans la liste
+            const artistIndex = artists.findIndex(a => a.id === artist.id)
+            if (artistIndex >= 0) {
+              artists[artistIndex].coverArt = proxyUrl
+              // Sauvegarder SEULEMENT les artistes (pas toutes les données pour éviter les problèmes)
+              saveArtists(artists).catch(err => {
+                console.error('[ARTISTS] Erreur lors de la sauvegarde de l\'image d\'artiste:', err)
+              })
+              console.log(`[ARTISTS] Photo d'artiste trouvée et sauvegardée pour ${artist.name}`)
+            }
+          }
+        } catch (error) {
+          // Ignorer silencieusement les erreurs pour ne pas polluer les logs
+          console.debug(`[ARTISTS] Erreur lors de la recherche d'image pour ${artist.name}:`, error)
+        }
+      })
+    ).catch(err => {
+      console.error('[ARTISTS] Erreur lors de la recherche d\'images en arrière-plan:', err)
+    })
+  }, 0)
 })
 
 /**
@@ -593,36 +650,74 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
       }
     })
     
-    // Rechercher l'image bannière de l'artiste sur plusieurs sources
+    // OPTIMISATION: Retourner immédiatement avec la photo de profil si disponible, puis rechercher la bannière en arrière-plan
+    // Pour RightSidebar, on veut une bannière (grande image), mais on utilise la photo de profil comme fallback rapide
     let artistBackground: string | null = null
-    try {
-      artistBackground = await searchArtistBackground(artist.name)
-      console.log(`[ARTIST] Image bannière recherchée pour ${artist.name}: ${artistBackground ? 'trouvée' : 'non trouvée'}`)
-      
-      // Si une image est trouvée, utiliser le proxy pour éviter les problèmes CORS
-      if (artistBackground) {
-        // Encoder l'URL pour la passer en paramètre
-        const encodedUrl = encodeURIComponent(artistBackground)
-        artistBackground = `/api/music/image-proxy?url=${encodedUrl}`
-        console.log(`[ARTIST] URL proxy générée: ${artistBackground.substring(0, 100)}`)
+    
+    // Vérifier si l'artiste a déjà une image sauvegardée (bannière ou photo de profil)
+    if (artist.coverArt && artist.coverArt.includes('image-proxy')) {
+      // Utiliser l'image en cache pour une réponse instantanée
+      artistBackground = artist.coverArt
+      console.log(`[ARTIST] Image en cache utilisée pour ${artist.name}`)
+    } else {
+      // Pas de cache, utiliser la photo de profil comme fallback immédiat si elle existe
+      // Cela permet un affichage rapide pendant que la bannière est recherchée en arrière-plan
+      if (artist.coverArt) {
+        artistBackground = artist.coverArt
+        console.log(`[ARTIST] Photo de profil utilisée comme fallback rapide pour ${artist.name}`)
       }
-    } catch (error) {
-      console.warn(`[ARTIST] Erreur lors de la recherche d'image bannière pour ${artist.name}:`, error)
     }
     
-    // Rechercher la biographie de l'artiste sur Last.fm
+    // Rechercher la bannière en arrière-plan (ne pas bloquer la réponse)
+    // Si on a déjà une image, on cherche quand même une meilleure bannière
+    setTimeout(async () => {
+      try {
+        const background = await searchArtistBackground(artist.name)
+        if (background) {
+          const encodedUrl = encodeURIComponent(background)
+          const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
+          
+          // Mettre à jour l'artiste en cache
+          const artistIndex = artists.findIndex(a => a.id === artistId)
+          if (artistIndex >= 0) {
+            artists[artistIndex].coverArt = proxyUrl
+            saveArtists(artists).catch(err => {
+              console.error('[ARTIST] Erreur lors de la sauvegarde de la bannière:', err)
+            })
+            console.log(`[ARTIST] Bannière trouvée et sauvegardée pour ${artist.name}`)
+          }
+        }
+      } catch (error) {
+        console.warn(`[ARTIST] Erreur lors de la recherche de bannière en arrière-plan pour ${artist.name}:`, error)
+      }
+    }, 0)
+    
+    // Rechercher la biographie de l'artiste sur Last.fm (en arrière-plan pour ne pas bloquer)
     let biography: string | null = null
-    try {
-      biography = await getArtistBiography(artist.name)
-      console.log(`[ARTIST] Biographie recherchée pour ${artist.name}: ${biography ? 'trouvée' : 'non trouvée'}`)
-      if (biography) {
-        console.log(`[ARTIST] Biographie (premiers 100 caractères): ${biography.substring(0, 100)}`)
-      }
-    } catch (error) {
-      console.warn(`[ARTIST] Erreur lors de la recherche de biographie pour ${artist.name}:`, error)
+    // Si l'artiste a déjà une biographie, l'utiliser, sinon rechercher en arrière-plan
+    if (artist.biography) {
+      biography = artist.biography
+    } else {
+      // Rechercher en arrière-plan
+      getArtistBiography(artist.name)
+        .then((bio) => {
+          if (bio) {
+            const artistIndex = artists.findIndex(a => a.id === artistId)
+            if (artistIndex >= 0) {
+              artists[artistIndex].biography = bio
+              saveArtists(artists).catch(err => {
+                console.error('[ARTIST] Erreur lors de la sauvegarde de la biographie:', err)
+              })
+            }
+          }
+        })
+        .catch((error) => {
+          console.warn(`[ARTIST] Erreur lors de la recherche de biographie en arrière-plan pour ${artist.name}:`, error)
+        })
     }
     
-    // Utiliser l'image bannière trouvée, sinon null
+    // Pour RightSidebar, utiliser TOUJOURS la vraie bannière d'artiste (pas de fallback vers couverture d'album)
+    // Si pas de bannière trouvée, retourner null (pas d'image générique)
     const coverArt = artistBackground || null
     
     const responseData = {
