@@ -31,6 +31,36 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('github.i
   }
 }
 
+/**
+ * Construit l'URL complète d'une image (pour les images d'artistes, albums, etc.)
+ * Gère les URLs absolues (http/https), les URLs relatives (/api/...), et les data URLs
+ */
+export function buildImageUrl(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null
+  
+  // Si c'est déjà une URL absolue (http/https), l'utiliser telle quelle
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl
+  }
+  
+  // Si c'est une data URL (base64), l'utiliser telle quelle
+  if (imageUrl.startsWith('data:')) {
+    return imageUrl
+  }
+  
+  // Sinon, construire l'URL avec le backend
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  const cleanUrl = baseUrl.replace(/\/$/, '')
+  
+  // Si l'URL commence déjà par /, l'utiliser directement
+  if (imageUrl.startsWith('/')) {
+    return `${cleanUrl}${imageUrl}`
+  }
+  
+  // Sinon, ajouter / devant
+  return `${cleanUrl}/${imageUrl}`
+}
+
 export interface Album {
   id: string
   title: string

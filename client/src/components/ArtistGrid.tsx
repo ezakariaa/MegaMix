@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Artist, getArtistAlbums, getAlbumTracks } from '../services/musicService'
+import { Artist, getArtistAlbums, getAlbumTracks, buildImageUrl } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './AlbumGrid.css' // Réutiliser les styles d'AlbumGrid
 
@@ -90,9 +90,23 @@ function ArtistGrid({ artists }: ArtistGridProps) {
             <div className="album-cover-container">
               {artistImage ? (
                 <img 
-                  src={artistImage} 
+                  src={buildImageUrl(artistImage) || ''} 
                   alt={artist.name}
                   className="album-cover"
+                  onError={(e) => {
+                    // En cas d'erreur, afficher le placeholder
+                    const target = e.target as HTMLImageElement
+                    if (target) {
+                      target.style.display = 'none'
+                      const container = target.parentElement
+                      if (container && !container.querySelector('.album-cover-placeholder')) {
+                        const placeholder = document.createElement('div')
+                        placeholder.className = 'album-cover-placeholder'
+                        placeholder.innerHTML = '<i class="bi bi-person-circle"></i>'
+                        container.appendChild(placeholder)
+                      }
+                    }
+                  }}
                 />
               ) : (
                 <div className="album-cover-placeholder">

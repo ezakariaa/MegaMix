@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { usePlayer } from '../contexts/PlayerContext'
-import { getArtistById, getArtistAlbums, getAlbumTracks, Artist } from '../services/musicService'
+import { getArtistById, getArtistAlbums, getAlbumTracks, Artist, buildImageUrl } from '../services/musicService'
 import './RightSidebar.css'
 
 function RightSidebar() {
@@ -116,17 +116,7 @@ function RightSidebar() {
               <div className="artist-banner-image-container">
                 {artist.coverArt ? (
                   <img 
-                    src={(() => {
-                      // Si l'URL commence déjà par http, l'utiliser telle quelle
-                      if (artist.coverArt.startsWith('http')) {
-                        return artist.coverArt
-                      }
-                      // Sinon, construire l'URL avec le backend (local ou déployé)
-                      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-                      const cleanUrl = apiBaseUrl.replace(/\/$/, '')
-                      const imagePath = artist.coverArt.startsWith('/') ? artist.coverArt : `/${artist.coverArt}`
-                      return `${cleanUrl}${imagePath}`
-                    })()}
+                    src={buildImageUrl(artist.coverArt) || ''}
                     alt={artist.name}
                     className="artist-banner-image"
                     onLoad={() => console.log('[RightSidebar] Image chargée avec succès')}

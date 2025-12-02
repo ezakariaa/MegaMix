@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Album, Artist, Track, Genre, SearchResults as SearchResultsType } from '../services/musicService'
+import { Album, Artist, Track, Genre, SearchResults as SearchResultsType, buildImageUrl } from '../services/musicService'
 import './SearchResults.css'
 
 interface SearchResultsProps {
@@ -84,7 +84,23 @@ function SearchResults({ results, searchQuery = '', onClose }: SearchResultsProp
               >
                 <div className="search-results-item-cover search-results-item-cover-round">
                   {artist.coverArt ? (
-                    <img src={artist.coverArt} alt={artist.name} />
+                    <img 
+                      src={buildImageUrl(artist.coverArt) || ''} 
+                      alt={artist.name}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        if (target) {
+                          target.style.display = 'none'
+                          const container = target.parentElement
+                          if (container && !container.querySelector('.search-results-item-placeholder')) {
+                            const placeholder = document.createElement('div')
+                            placeholder.className = 'search-results-item-placeholder'
+                            placeholder.innerHTML = '<i class="bi bi-person-circle"></i>'
+                            container.appendChild(placeholder)
+                          }
+                        }
+                      }}
+                    />
                   ) : (
                     <div className="search-results-item-placeholder">
                       <i className="bi bi-person-circle"></i>
