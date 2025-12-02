@@ -52,11 +52,24 @@ function Library() {
         status: error.response?.status,
         url: error.config?.url
       })
+      
+      // Détecter si on est sur GitHub Pages
+      const isGitHubPages = window.location.hostname.includes('github.io')
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      
+      let errorMessage = `Erreur de connexion au backend: ${error.message || 'Vérifiez que le backend est accessible'}`
+      
+      if (isGitHubPages && (apiUrl.includes('localhost') || !apiUrl || apiUrl === 'http://localhost:5000')) {
+        errorMessage = '⚠️ Configuration manquante: VITE_API_URL n\'est pas configuré. Configurez le secret VITE_API_URL dans GitHub Settings > Secrets > Actions. Voir GITHUB_PAGES_SETUP.md pour plus d\'informations.'
+      } else if (error.response?.status === 0 || error.code === 'ERR_NETWORK' || error.message?.includes('CORS')) {
+        errorMessage = 'Erreur CORS: Le backend doit autoriser les requêtes depuis GitHub Pages. Configurez ALLOWED_ORIGINS sur votre backend. Voir GITHUB_PAGES_SETUP.md'
+      }
+      
       setMessage({
         type: 'error',
-        text: `Erreur de connexion au backend: ${error.message || 'Vérifiez que le backend Railway est accessible'}`
+        text: errorMessage
       })
-      setTimeout(() => setMessage(null), 10000)
+      setTimeout(() => setMessage(null), 15000)
     } finally {
       if (showLoading) {
         setLoading(false)

@@ -1,6 +1,8 @@
 .album-detail-page {
   padding: 0;
   min-height: 100%;
+  margin: -32px;
+  margin-bottom: 0;
 }
 
 /* Header avec couverture et infos */
@@ -96,6 +98,8 @@
   gap: 16px;
   padding: 24px 32px;
   background-color: var(--spotify-dark);
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .album-play-button {
@@ -141,6 +145,8 @@
 .album-tracklist {
   background-color: var(--spotify-dark);
   padding: 0 32px 32px 32px;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .tracklist-header {
@@ -323,6 +329,11 @@
 
 /* Responsive */
 @media (max-width: 992px) {
+  .album-detail-page {
+    margin: -24px -16px;
+    margin-bottom: 0;
+  }
+
   .album-detail-header {
     padding: 24px;
     min-height: 300px;
@@ -339,6 +350,11 @@
 }
 
 @media (max-width: 768px) {
+  .album-detail-page {
+    margin: -16px -12px;
+    margin-bottom: 0;
+  }
+
   .album-detail-header {
     flex-direction: column;
     align-items: center;
@@ -401,6 +417,11 @@
 }
 
 @media (max-width: 480px) {
+  .album-detail-page {
+    margin: -12px -8px;
+    margin-bottom: 0;
+  }
+
   .album-detail-header {
     padding: 20px 12px;
   }

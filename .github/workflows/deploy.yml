@@ -45,10 +45,19 @@ jobs:
       - name: Build
         run: |
           cd client
+          if [ -z "$VITE_API_URL" ] || [ "$VITE_API_URL" = "http://localhost:5000" ]; then
+            echo "⚠️  ATTENTION: VITE_API_URL n'est pas configuré dans les secrets GitHub!"
+            echo "⚠️  L'application ne pourra pas se connecter au backend sur GitHub Pages."
+            echo "⚠️  Configurez le secret VITE_API_URL dans Settings > Secrets and variables > Actions"
+            echo "⚠️  Exemple: https://votre-backend.up.railway.app"
+          else
+            echo "✅ VITE_API_URL configuré: $VITE_API_URL"
+          fi
           npm run build
         env:
           # Utilisez votre URL de backend déployé ici
-          # Exemple: VITE_API_URL: https://votre-backend.onrender.com
+          # Configurez VITE_API_URL dans Settings > Secrets and variables > Actions
+          # Exemple: https://votre-backend.up.railway.app (sans /api à la fin)
           VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:5000' }}
 
       - name: Setup Pages

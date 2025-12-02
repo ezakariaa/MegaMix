@@ -21,6 +21,16 @@ const API_BASE_URL = getApiBaseUrl()
 // Log l'URL utilisée au chargement du module
 console.log('[API] URL de l\'API utilisée:', API_BASE_URL)
 
+// Avertissement si on est sur GitHub Pages et que l'API pointe vers localhost
+if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+  if (API_BASE_URL.includes('localhost') || !import.meta.env.VITE_API_URL) {
+    console.warn('⚠️ [API] ATTENTION: VITE_API_URL n\'est pas configuré ou pointe vers localhost!')
+    console.warn('⚠️ [API] L\'application ne pourra pas se connecter au backend sur GitHub Pages.')
+    console.warn('⚠️ [API] Configurez le secret VITE_API_URL dans GitHub Settings > Secrets > Actions')
+    console.warn('⚠️ [API] Voir GITHUB_PAGES_SETUP.md pour plus d\'informations')
+  }
+}
+
 export interface Album {
   id: string
   title: string
