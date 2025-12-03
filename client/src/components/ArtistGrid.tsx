@@ -20,6 +20,10 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   useEffect(() => {
     if (artists.length === 0) return
 
+    // Nettoyer les anciens liens de préchargement avant d'en ajouter de nouveaux
+    const existingLinks = document.querySelectorAll('link[rel="preload"][as="image"][data-artist-preload]')
+    existingLinks.forEach(link => link.remove())
+
     // Précharger toutes les images en parallèle pour un chargement rapide
     const preloadImages = () => {
       artists.forEach((artist) => {
@@ -29,11 +33,13 @@ function ArtistGrid({ artists }: ArtistGridProps) {
             // Créer un objet Image pour forcer le préchargement dans le cache du navigateur
             const img = new Image()
             img.src = imageUrl
-            // Optionnel : précharger aussi via link rel="preload" pour les navigateurs modernes
+            
+            // Précharger via link rel="preload" pour les navigateurs modernes
             const link = document.createElement('link')
             link.rel = 'preload'
             link.as = 'image'
             link.href = imageUrl
+            link.setAttribute('data-artist-preload', artist.id) // Marquer pour faciliter le nettoyage
             document.head.appendChild(link)
           }
         }
@@ -42,6 +48,12 @@ function ArtistGrid({ artists }: ArtistGridProps) {
 
     // Précharger immédiatement
     preloadImages()
+    
+    // Cleanup function pour nettoyer les liens lors du démontage
+    return () => {
+      const links = document.querySelectorAll('link[rel="preload"][as="image"][data-artist-preload]')
+      links.forEach(link => link.remove())
+    }
   }, [artists])
 
   // Charger tous les albums et pistes pour vérifier les compilations
@@ -101,6 +113,23 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   }, [artists, allAlbums, allTracks])
 
   const handleArtistClick = (artist: Artist) => {
+    // Sauvegarder l'ID de l'artiste et la position de scroll avant de naviguer
+    const scrollPosition = window.scrollY || window.pageYOffset || 0
+    const mainContent = document.querySelector('.main-content') as HTMLElement
+    const mainContentScroll = mainContent ? mainContent.scrollTop : 0
+    
+    // Trouver la position de la carte de l'artiste
+    const artistCard = document.querySelector(`[data-artist-id="${artist.id}"]`) as HTMLElement
+    const cardOffsetTop = artistCard ? artistCard.getBoundingClientRect().top + scrollPosition : scrollPosition
+    
+    sessionStorage.setItem('artistsScrollPosition', JSON.stringify({
+      windowScroll: scrollPosition,
+      mainContentScroll: mainContentScroll,
+      cardOffsetTop: cardOffsetTop,
+      artistId: artist.id,
+      timestamp: Date.now()
+    }))
+    
     // Naviguer vers la page de détail de l'artiste
     navigate(`/artist/${artist.id}`)
   }
@@ -178,6 +207,7 @@ function ArtistGrid({ artists }: ArtistGridProps) {
           <div 
             key={artist.id} 
             className="album-card"
+            data-artist-id={artist.id}
             onClick={() => handleArtistClick(artist)}
           >
             <div className="album-cover-container">

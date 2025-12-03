@@ -58,36 +58,34 @@ export async function loadArtistImagesFromGoogleDrive(folderId: string): Promise
           const imageFiles = json.files.filter((file: any) => {
             const mimeType = file.mimeType || ''
             return mimeType.startsWith('image/') || 
-                   /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name)
+                   /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(file.name)
           })
 
           console.log(`[GOOGLE DRIVE IMAGES] ${imageFiles.length} image(s) trouvée(s) dans le dossier`)
 
-          // Vider le cache précédent
-          googleDriveImagesCache.clear()
+          // Créer un nouveau cache temporaire sans vider l'ancien
+          const newCache = new Map<string, string>()
 
-          // Ajouter chaque image au cache
+          // Ajouter chaque image au nouveau cache
           imageFiles.forEach((file: any) => {
-            // Extraire le nom d'artiste depuis le nom de fichier
-            // Exemples: "Bruce Springsteen.jpg" -> "Bruce Springsteen"
-            //          "The Beatles.png" -> "The Beatles"
             const fileName = file.name
             const artistName = fileName
-              .replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') // Retirer l'extension
+              .replace(/\.(jpg|jpeg|png|gif|webp|bmp)$/i, '')
               .trim()
 
             if (artistName) {
-              // URL pour afficher l'image depuis Google Drive
-              // Utiliser export=download pour obtenir l'image directement (plus fiable que export=view)
               const imageUrl = `https://drive.google.com/uc?export=download&id=${file.id}`
-              // Stocker avec le nom original (pas normalisé) pour garder la casse
-              googleDriveImagesCache.set(artistName, imageUrl)
-              console.log(`[GOOGLE DRIVE IMAGES] Image ajoutée au cache: "${artistName}" -> ${file.id}`)
-              console.log(`[GOOGLE DRIVE IMAGES]   URL: ${imageUrl}`)
+              newCache.set(artistName, imageUrl)
             }
           })
 
-          console.log(`[GOOGLE DRIVE IMAGES] ✓ Cache chargé: ${googleDriveImagesCache.size} image(s) d'artiste(s)`)
+          // Remplacer l'ancien cache par le nouveau seulement après chargement complet
+          googleDriveImagesCache.clear()
+          newCache.forEach((value, key) => {
+            googleDriveImagesCache.set(key, value)
+          })
+          
+          console.log(`[GOOGLE DRIVE IMAGES] Cache mis à jour: ${googleDriveImagesCache.size} image(s)`)
           resolve()
         } catch (error) {
           console.error('[GOOGLE DRIVE IMAGES] Erreur parsing:', error)
@@ -126,25 +124,19 @@ export function getArtistImageFromGoogleDrive(artistName: string): string | null
     return null
   }
 
-  // Log pour déboguer
-  console.log(`[GOOGLE DRIVE IMAGES] Recherche pour: "${artistName}"`)
-  console.log(`[GOOGLE DRIVE IMAGES] Cache contient ${googleDriveImagesCache.size} image(s)`)
-
-  // Afficher les clés du cache pour déboguer
-  if (googleDriveImagesCache.size > 0) {
-    const cacheKeys = Array.from(googleDriveImagesCache.keys())
-    console.log(`[GOOGLE DRIVE IMAGES] Clés dans le cache: ${cacheKeys.slice(0, 5).join(', ')}${cacheKeys.length > 5 ? '...' : ''}`)
+  // Vérifier si le cache est vide
+  if (googleDriveImagesCache.size === 0) {
+    console.log(`[GOOGLE DRIVE IMAGES] ⚠️ Cache vide lors de la recherche pour "${artistName}"`)
+    return null
   }
 
   // Normaliser le nom de l'artiste
   const normalizedName = normalizeArtistName(artistName)
-  console.log(`[GOOGLE DRIVE IMAGES] Nom normalisé: "${normalizedName}"`)
 
   // Chercher par nom exact (insensible à la casse, sans accents)
   for (const [cachedName, url] of googleDriveImagesCache.entries()) {
     const normalizedCachedName = normalizeArtistName(cachedName)
     if (normalizedCachedName === normalizedName) {
-      console.log(`[GOOGLE DRIVE IMAGES] ✓ Image trouvée (correspondance exacte): "${cachedName}" pour "${artistName}"`)
       return url
     }
   }
@@ -152,17 +144,15 @@ export function getArtistImageFromGoogleDrive(artistName: string): string | null
   // Chercher par correspondance partielle
   for (const [cachedName, url] of googleDriveImagesCache.entries()) {
     const normalizedCachedName = normalizeArtistName(cachedName)
+    
     // Vérifier si l'un contient l'autre (pour gérer les variations)
     if (normalizedCachedName.includes(normalizedName) || normalizedName.includes(normalizedCachedName)) {
-      // Mais seulement si la correspondance est significative (au moins 5 caractères)
       if (normalizedName.length >= 5 || normalizedCachedName.length >= 5) {
-        console.log(`[GOOGLE DRIVE IMAGES] ✓ Image trouvée (correspondance partielle): "${cachedName}" pour "${artistName}"`)
         return url
       }
     }
   }
 
-  console.log(`[GOOGLE DRIVE IMAGES] ✗ Aucune image trouvée pour: "${artistName}"`)
   return null
 }
 

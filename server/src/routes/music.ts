@@ -8,7 +8,7 @@ import { parseFile } from 'music-metadata'
 import { Album, Track, Artist } from '../types'
 import { loadAllData, saveAllData, saveAlbums, saveTracks, saveArtists } from '../utils/dataPersistence'
 import { searchArtistImage, searchLastFm } from '../utils/artistImageSearch'
-import { loadArtistImagesFromGoogleDrive, clearGoogleDriveImagesCache } from '../utils/googleDriveImages'
+import { loadArtistImagesFromGoogleDrive, clearGoogleDriveImagesCache, getArtistImageFromGoogleDrive } from '../utils/googleDriveImages'
 import { getArtistBiography } from '../utils/artistBiography'
 import { syncToKoyeb } from '../utils/syncToKoyeb'
 
@@ -551,6 +551,9 @@ router.get('/tracks', (req: Request, res: Response) => {
  * Route pour obtenir tous les artistes
  */
 router.get('/artists', (req: Request, res: Response) => {
+  // Vérifier si on doit forcer le rechargement depuis Google Drive
+  const forceReload = req.query.forceReload === 'true'
+  
   // Calculer le nombre d'albums par artiste et INCLURE les images en cache
   const artistsWithAlbumCount = artists.map(artist => {
     const albumCount = albums.filter(album => album.artistId === artist.id).length
@@ -562,26 +565,51 @@ router.get('/artists', (req: Request, res: Response) => {
     }
   })
   
+  // TOUJOURS vérifier le cache Google Drive pour récupérer les images manquantes
+  artistsWithAlbumCount.forEach((artist) => {
+    if (!artist.coverArt) {
+      const googleDriveImage = getArtistImageFromGoogleDrive(artist.name)
+      if (googleDriveImage && googleDriveImage.startsWith('http')) {
+        const encodedUrl = encodeURIComponent(googleDriveImage)
+        const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
+        
+        // Mettre à jour l'artiste dans la liste originale
+        const artistIndex = artists.findIndex(a => a.id === artist.id)
+        if (artistIndex >= 0) {
+          artists[artistIndex].coverArt = proxyUrl
+        }
+        
+        // Mettre à jour aussi dans la réponse
+        artist.coverArt = proxyUrl
+      }
+    }
+  })
+  
+  // Sauvegarder les artistes mis à jour si nécessaire
+  const updatedArtists = artistsWithAlbumCount.filter(a => {
+    const original = artists.find(art => art.id === a.id)
+    return original && original.coverArt !== a.coverArt && a.coverArt
+  })
+  
+  if (updatedArtists.length > 0) {
+    saveArtists(artists).catch(err => {
+      console.error('[ARTISTS] Erreur lors de la sauvegarde:', err)
+    })
+  }
+  
   // Compter les artistes avec images en cache
   const artistsWithImages = artistsWithAlbumCount.filter(a => a.coverArt).length
-  console.log(`[ARTISTS] Réponse envoyée: ${artistsWithAlbumCount.length} artiste(s), ${artistsWithImages} avec image(s) en cache`)
+  console.log(`[ARTISTS] Réponse: ${artistsWithAlbumCount.length} artiste(s), ${artistsWithImages} avec image(s)`)
   
-  // Envoyer la réponse immédiatement avec les images en cache
+  // Envoyer la réponse
   res.json({ artists: artistsWithAlbumCount })
-  
-  // Vérifier si on doit forcer le rechargement depuis Google Drive (paramètre query)
-  const forceReload = req.query.forceReload === 'true'
-  
-  if (forceReload) {
-    console.log('[ARTISTS] Rechargement forcé des images depuis Google Drive demandé')
-  }
   
   // Rechercher les photos d'artistes en arrière-plan depuis Google Drive
   // (après l'envoi de la réponse pour ne pas bloquer)
   setTimeout(() => {
-    // Si forceReload est activé, chercher pour TOUS les artistes, sinon seulement ceux sans image
+    // Si forceReload n'est pas activé, chercher seulement ceux sans image
     const artistsToUpdate = forceReload
-      ? artistsWithAlbumCount.slice(0, 50) // Traiter jusqu'à 50 artistes si rechargement forcé
+      ? [] // Si forceReload, on a déjà mis à jour depuis le cache, pas besoin de chercher
       : artistsWithAlbumCount
           .filter(artist => !artist.coverArt) // Seulement ceux sans image
           .slice(0, 20) // Traiter jusqu'à 20 artistes à la fois
@@ -593,30 +621,14 @@ router.get('/artists', (req: Request, res: Response) => {
       return
     }
     
-    console.log(`[ARTISTS] Recherche d'images Google Drive pour ${artistsToUpdate.length} artiste(s)${forceReload ? ' (rechargement forcé)' : ' sans image'}...`)
+    console.log(`[ARTISTS] Recherche d'images Google Drive pour ${artistsToUpdate.length} artiste(s) sans image...`)
     
     // Rechercher en parallèle depuis Google Drive
     Promise.all(
       artistsToUpdate.map(async (artist) => {
         try {
-          // Si forceReload, supprimer l'image en cache avant de chercher
-          if (forceReload) {
-            const artistIndex = artists.findIndex(a => a.id === artist.id)
-            if (artistIndex >= 0 && artists[artistIndex].coverArt) {
-              artists[artistIndex].coverArt = undefined
-            }
-          }
-          
           // Rechercher une photo d'artiste depuis Google Drive uniquement
-          const artistImage = await Promise.race([
-            searchArtistImage(artist.name),
-            new Promise<string | null>((resolve) => {
-              setTimeout(() => {
-                console.log(`[ARTISTS] Timeout de recherche d'image pour ${artist.name} (3 secondes)`)
-                resolve(null)
-              }, 3000) // Timeout réduit à 3 secondes car Google Drive est rapide
-            })
-          ])
+          const artistImage = searchArtistImage(artist.name)
           
           if (artistImage) {
             // Utiliser le proxy pour éviter les problèmes CORS
@@ -2057,17 +2069,15 @@ router.post('/load-artist-images-from-drive', async (req: Request, res: Response
       return res.status(400).json({ error: 'ID du dossier Google Drive requis' })
     }
 
-    console.log(`[GOOGLE DRIVE IMAGES] Chargement des images depuis le dossier: ${folderId}`)
+    console.log(`[GOOGLE DRIVE IMAGES] Rechargement des images depuis le dossier: ${folderId}`)
 
-    // Vider le cache précédent
-    clearGoogleDriveImagesCache()
-
-    // Charger les images depuis Google Drive
+    // Charger les images depuis Google Drive (va vider et recharger dans la fonction)
     await loadArtistImagesFromGoogleDrive(folderId)
 
     // Récupérer les clés du cache pour les afficher
     const { getGoogleDriveImagesCache } = require('../utils/googleDriveImages')
-    const cacheKeys = getGoogleDriveImagesCache ? Array.from(getGoogleDriveImagesCache().keys()) : []
+    const cache = getGoogleDriveImagesCache ? getGoogleDriveImagesCache() : new Map()
+    const cacheKeys = Array.from(cache.keys())
 
     res.json({
       success: true,
