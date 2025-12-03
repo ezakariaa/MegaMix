@@ -201,6 +201,11 @@
 
   .navbar-search {
     max-width: 100%;
+    padding: 0 12px;
+  }
+
+  .navbar-search-input {
+    font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   }
 
   .navbar-login-text {
@@ -245,13 +250,18 @@
     display: none !important;
   }
 
+  .navbar-search {
+    padding: 0 16px;
+  }
+
   .navbar-search-container {
-    height: 28px;
-    padding: 3px 10px;
+    height: 36px;
+    padding: 4px 12px;
   }
 
   .navbar-search-input {
     font-size: 0.8rem;
+    font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   }
 
   .navbar-search-input::placeholder {
@@ -293,13 +303,18 @@
     display: none !important;
   }
 
+  .navbar-search {
+    padding: 0 12px;
+  }
+
   .navbar-search-container {
-    height: 26px;
-    padding: 2px 8px;
+    height: 34px;
+    padding: 3px 10px;
   }
 
   .navbar-search-input {
     font-size: 0.75rem;
+    font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   }
 
   .navbar-search-input::placeholder {
