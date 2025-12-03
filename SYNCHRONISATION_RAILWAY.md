@@ -177,3 +177,4 @@ Si vous voyez des erreurs dans les logs :
 
 **La synchronisation bidirectionnelle est maintenant configurée ! 🎵**
 
+

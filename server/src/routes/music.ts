@@ -7,7 +7,8 @@ import { scanMusicFolder } from '../services/musicScanner'
 import { parseFile } from 'music-metadata'
 import { Album, Track, Artist } from '../types'
 import { loadAllData, saveAllData, saveAlbums, saveTracks, saveArtists } from '../utils/dataPersistence'
-import { searchArtistImage, searchArtistBackground, searchLastFm } from '../utils/artistImageSearch'
+import { searchArtistImage, searchLastFm } from '../utils/artistImageSearch'
+import { loadArtistImagesFromGoogleDrive, clearGoogleDriveImagesCache } from '../utils/googleDriveImages'
 import { getArtistBiography } from '../utils/artistBiography'
 import { syncToKoyeb } from '../utils/syncToKoyeb'
 
@@ -550,62 +551,94 @@ router.get('/tracks', (req: Request, res: Response) => {
  * Route pour obtenir tous les artistes
  */
 router.get('/artists', (req: Request, res: Response) => {
-  // Calculer le nombre d'albums par artiste
+  // Calculer le nombre d'albums par artiste et INCLURE les images en cache
   const artistsWithAlbumCount = artists.map(artist => {
     const albumCount = albums.filter(album => album.artistId === artist.id).length
     return {
       ...artist,
       albumCount,
+      // INCLURE coverArt si elle existe (ne pas la supprimer)
+      coverArt: artist.coverArt || undefined,
     }
   })
   
-  // Envoyer la réponse immédiatement
+  // Compter les artistes avec images en cache
+  const artistsWithImages = artistsWithAlbumCount.filter(a => a.coverArt).length
+  console.log(`[ARTISTS] Réponse envoyée: ${artistsWithAlbumCount.length} artiste(s), ${artistsWithImages} avec image(s) en cache`)
+  
+  // Envoyer la réponse immédiatement avec les images en cache
   res.json({ artists: artistsWithAlbumCount })
   
-  // Rechercher les photos d'artistes en arrière-plan pour les artistes qui n'en ont pas
+  // Vérifier si on doit forcer le rechargement depuis Google Drive (paramètre query)
+  const forceReload = req.query.forceReload === 'true'
+  
+  if (forceReload) {
+    console.log('[ARTISTS] Rechargement forcé des images depuis Google Drive demandé')
+  }
+  
+  // Rechercher les photos d'artistes en arrière-plan depuis Google Drive
   // (après l'envoi de la réponse pour ne pas bloquer)
   setTimeout(() => {
-    const artistsWithoutImage = artistsWithAlbumCount
-      .filter(artist => !artist.coverArt)
-      .slice(0, 5) // Augmenter à 5 artistes à la fois pour plus de rapidité
+    // Si forceReload est activé, chercher pour TOUS les artistes, sinon seulement ceux sans image
+    const artistsToUpdate = forceReload
+      ? artistsWithAlbumCount.slice(0, 50) // Traiter jusqu'à 50 artistes si rechargement forcé
+      : artistsWithAlbumCount
+          .filter(artist => !artist.coverArt) // Seulement ceux sans image
+          .slice(0, 20) // Traiter jusqu'à 20 artistes à la fois
     
-    if (artistsWithoutImage.length === 0) {
-      return // Tous les artistes ont déjà une photo
+    if (artistsToUpdate.length === 0) {
+      if (!forceReload) {
+        console.log('[ARTISTS] Tous les artistes ont déjà une image en cache')
+      }
+      return
     }
     
-    // Rechercher en parallèle pour plus de rapidité
+    console.log(`[ARTISTS] Recherche d'images Google Drive pour ${artistsToUpdate.length} artiste(s)${forceReload ? ' (rechargement forcé)' : ' sans image'}...`)
+    
+    // Rechercher en parallèle depuis Google Drive
     Promise.all(
-      artistsWithoutImage.map(async (artist) => {
+      artistsToUpdate.map(async (artist) => {
         try {
-          // Rechercher une photo d'artiste (pas une bannière)
-          // Essayer Last.fm en premier (plus rapide)
-          let artistImage: string | null = null
-          
-          try {
-            artistImage = await Promise.race([
-              searchLastFm(artist.name),
-              new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 2000)) // Timeout de 2 secondes
-            ]) as string | null
-          } catch (error) {
-            // Si Last.fm échoue rapidement, essayer la recherche complète
-            artistImage = await searchArtistImage(artist.name)
+          // Si forceReload, supprimer l'image en cache avant de chercher
+          if (forceReload) {
+            const artistIndex = artists.findIndex(a => a.id === artist.id)
+            if (artistIndex >= 0 && artists[artistIndex].coverArt) {
+              artists[artistIndex].coverArt = undefined
+            }
           }
+          
+          // Rechercher une photo d'artiste depuis Google Drive uniquement
+          const artistImage = await Promise.race([
+            searchArtistImage(artist.name),
+            new Promise<string | null>((resolve) => {
+              setTimeout(() => {
+                console.log(`[ARTISTS] Timeout de recherche d'image pour ${artist.name} (3 secondes)`)
+                resolve(null)
+              }, 3000) // Timeout réduit à 3 secondes car Google Drive est rapide
+            })
+          ])
           
           if (artistImage) {
             // Utiliser le proxy pour éviter les problèmes CORS
             const encodedUrl = encodeURIComponent(artistImage)
             const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
             
+            console.log(`[ARTISTS] ✓ Image Google Drive trouvée pour ${artist.name}`)
+            console.log(`[ARTISTS]   URL originale: ${artistImage.substring(0, 100)}...`)
+            console.log(`[ARTISTS]   URL proxy: ${proxyUrl}`)
+            
             // Mettre à jour l'artiste dans la liste
             const artistIndex = artists.findIndex(a => a.id === artist.id)
             if (artistIndex >= 0) {
               artists[artistIndex].coverArt = proxyUrl
-              // Sauvegarder SEULEMENT les artistes (pas toutes les données pour éviter les problèmes)
+              // Sauvegarder SEULEMENT les artistes
               saveArtists(artists).catch(err => {
                 console.error('[ARTISTS] Erreur lors de la sauvegarde de l\'image d\'artiste:', err)
               })
-              console.log(`[ARTISTS] Photo d'artiste trouvée et sauvegardée pour ${artist.name}`)
+              console.log(`[ARTISTS] Photo d'artiste sauvegardée pour ${artist.name} (via Google Drive)`)
             }
+          } else {
+            console.log(`[ARTISTS] Aucune image Google Drive trouvée pour ${artist.name}`)
           }
         } catch (error) {
           // Ignorer silencieusement les erreurs pour ne pas polluer les logs
@@ -650,47 +683,104 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
       }
     })
     
-    // OPTIMISATION: Retourner immédiatement avec la photo de profil si disponible, puis rechercher la bannière en arrière-plan
-    // Pour RightSidebar, on veut une bannière (grande image), mais on utilise la photo de profil comme fallback rapide
+    // Pour RightSidebar, on veut afficher une PHOTO DE PROFIL d'artiste depuis Google Drive
     let artistBackground: string | null = null
     
-    // Vérifier si l'artiste a déjà une image sauvegardée (bannière ou photo de profil)
-    if (artist.coverArt && artist.coverArt.includes('image-proxy')) {
-      // Utiliser l'image en cache pour une réponse instantanée
-      artistBackground = artist.coverArt
-      console.log(`[ARTIST] Image en cache utilisée pour ${artist.name}`)
-    } else {
-      // Pas de cache, utiliser la photo de profil comme fallback immédiat si elle existe
-      // Cela permet un affichage rapide pendant que la bannière est recherchée en arrière-plan
+    // TOUJOURS chercher depuis Google Drive, même si une image est en cache
+    // (pour s'assurer qu'on a la dernière version depuis Google Drive)
+    console.log(`[ARTIST] Recherche d'image Google Drive pour ${artist.name}...`)
+    try {
+      // Lancer la recherche de photo de profil (UNIQUEMENT Google Drive) avec timeout court
+      const profileImage = await Promise.race([
+        searchArtistImage(artist.name),
+        new Promise<string | null>((resolve) => {
+          setTimeout(() => {
+            console.log(`[ARTIST] Timeout de recherche d'image pour ${artist.name} (3 secondes)`)
+            resolve(null)
+          }, 3000) // Timeout de 3 secondes car Google Drive est rapide
+        })
+      ])
+      
+      console.log(`[ARTIST] Résultat de la recherche pour ${artist.name}:`, profileImage ? `TROUVÉ (${profileImage.substring(0, 80)}...)` : 'NON TROUVÉ')
+      
+      if (profileImage) {
+        const encodedUrl = encodeURIComponent(profileImage)
+        const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
+        artistBackground = proxyUrl
+        
+        console.log(`[ARTIST] ✓ Image Google Drive trouvée pour ${artist.name}`)
+        console.log(`[ARTIST]   URL originale: ${profileImage.substring(0, 100)}...`)
+        console.log(`[ARTIST]   URL proxy: ${proxyUrl}`)
+        
+        // Sauvegarder immédiatement pour le cache
+        const artistIndex = artists.findIndex(a => a.id === artistId)
+        if (artistIndex >= 0) {
+          artists[artistIndex].coverArt = proxyUrl
+          saveArtists(artists).catch(err => {
+            console.error('[ARTIST] Erreur lors de la sauvegarde de l\'image:', err)
+          })
+          console.log(`[ARTIST] Image sauvegardée dans le cache pour ${artist.name}`)
+        }
+      } else {
+        // Si pas d'image trouvée, utiliser celle en cache si elle existe
+        if (artist.coverArt) {
+          artistBackground = artist.coverArt
+          console.log(`[ARTIST] Image en cache utilisée comme fallback pour ${artist.name}: ${artist.coverArt}`)
+        } else {
+          console.log(`[ARTIST] ✗ Aucune image Google Drive trouvée pour ${artist.name} (ni recherche, ni cache)`)
+        }
+        
+        // Rechercher en arrière-plan pour les prochaines fois
+        searchArtistImage(artist.name)
+          .then((image) => {
+            if (image) {
+              const encodedUrl = encodeURIComponent(image)
+              const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
+              
+              const artistIndex = artists.findIndex(a => a.id === artistId)
+              if (artistIndex >= 0) {
+                artists[artistIndex].coverArt = proxyUrl
+                saveArtists(artists).catch(err => {
+                  console.error('[ARTIST] Erreur lors de la sauvegarde de l\'image:', err)
+                })
+                console.log(`[ARTIST] Image trouvée en arrière-plan et sauvegardée pour ${artist.name}: ${proxyUrl}`)
+              }
+            }
+          })
+          .catch((error) => {
+            console.warn(`[ARTIST] Erreur lors de la recherche d'image en arrière-plan pour ${artist.name}:`, error)
+          })
+      }
+    } catch (error) {
+      console.warn(`[ARTIST] Erreur lors de la recherche d'image pour ${artist.name}:`, error)
+      
+      // En cas d'erreur, utiliser l'image en cache si elle existe
       if (artist.coverArt) {
         artistBackground = artist.coverArt
-        console.log(`[ARTIST] Photo de profil utilisée comme fallback rapide pour ${artist.name}`)
+        console.log(`[ARTIST] Image en cache utilisée comme fallback après erreur pour ${artist.name}`)
       }
-    }
-    
-    // Rechercher la bannière en arrière-plan (ne pas bloquer la réponse)
-    // Si on a déjà une image, on cherche quand même une meilleure bannière
-    setTimeout(async () => {
-      try {
-        const background = await searchArtistBackground(artist.name)
-        if (background) {
-          const encodedUrl = encodeURIComponent(background)
-          const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
-          
-          // Mettre à jour l'artiste en cache
-          const artistIndex = artists.findIndex(a => a.id === artistId)
-          if (artistIndex >= 0) {
-            artists[artistIndex].coverArt = proxyUrl
-            saveArtists(artists).catch(err => {
-              console.error('[ARTIST] Erreur lors de la sauvegarde de la bannière:', err)
-            })
-            console.log(`[ARTIST] Bannière trouvée et sauvegardée pour ${artist.name}`)
+      
+      // Rechercher en arrière-plan pour les prochaines fois
+      searchArtistImage(artist.name)
+        .then((image) => {
+          if (image) {
+            const encodedUrl = encodeURIComponent(image)
+            const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
+            
+            const artistIndex = artists.findIndex(a => a.id === artistId)
+            if (artistIndex >= 0) {
+              artists[artistIndex].coverArt = proxyUrl
+              saveArtists(artists).catch(err => {
+                console.error('[ARTIST] Erreur lors de la sauvegarde de l\'image:', err)
+              })
+              console.log(`[ARTIST] Image trouvée en arrière-plan et sauvegardée pour ${artist.name}: ${proxyUrl}`)
+            }
           }
-        }
-      } catch (error) {
-        console.warn(`[ARTIST] Erreur lors de la recherche de bannière en arrière-plan pour ${artist.name}:`, error)
-      }
-    }, 0)
+        })
+        .catch((err) => {
+          console.warn(`[ARTIST] Erreur lors de la recherche d'image en arrière-plan pour ${artist.name}:`, err)
+        })
+    }
     
     // Rechercher la biographie de l'artiste sur Last.fm (en arrière-plan pour ne pas bloquer)
     let biography: string | null = null
@@ -716,9 +806,11 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
         })
     }
     
+    // Plus de recherche de logo (supprimé comme demandé)
+    
     // Pour RightSidebar, utiliser TOUJOURS la vraie bannière d'artiste (pas de fallback vers couverture d'album)
-    // Si pas de bannière trouvée, retourner null (pas d'image générique)
-    const coverArt = artistBackground || null
+    // Si pas de bannière trouvée, utiliser la photo de profil en cache si elle existe
+    const coverArt = artistBackground || artist.coverArt || null
     
     const responseData = {
       ...artist,
@@ -726,17 +818,17 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
       coverArt,
       genre: mostCommonGenre,
       biography,
+      // logo supprimé comme demandé
     }
     
-    console.log(`[ARTIST] Réponse finale pour ${artist.name}:`, {
-      id: responseData.id,
-      name: responseData.name,
-      albumCount: responseData.albumCount,
-      trackCount: responseData.trackCount,
-      genre: responseData.genre,
-      hasCoverArt: !!responseData.coverArt,
-      hasBiography: !!responseData.biography,
-    })
+    console.log(`[ARTIST] Réponse finale pour ${artist.name}:`)
+    console.log(`  - CoverArt: ${responseData.coverArt ? 'OUI (' + responseData.coverArt.substring(0, 50) + '...)' : 'NON'}`)
+    console.log(`  - ArtistBackground trouvé: ${artistBackground ? 'OUI' : 'NON'}`)
+    console.log(`  - Artist.coverArt original: ${artist.coverArt ? 'OUI' : 'NON'}`)
+    console.log(`  - AlbumCount: ${responseData.albumCount}`)
+    console.log(`  - TrackCount: ${responseData.trackCount}`)
+    console.log(`  - Genre: ${responseData.genre || 'N/A'}`)
+    console.log(`  - Biography: ${responseData.biography ? 'OUI' : 'NON'}`)
     
     res.json(responseData)
   } catch (error: any) {
@@ -1953,6 +2045,66 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
 })
 
 /**
+ * Route pour charger les images d'artistes depuis un dossier Google Drive
+ * POST /api/music/load-artist-images-from-drive
+ * Body: { folderId: "ID_DU_DOSSIER_GOOGLE_DRIVE" }
+ */
+router.post('/load-artist-images-from-drive', async (req: Request, res: Response) => {
+  try {
+    const { folderId } = req.body
+
+    if (!folderId || typeof folderId !== 'string') {
+      return res.status(400).json({ error: 'ID du dossier Google Drive requis' })
+    }
+
+    console.log(`[GOOGLE DRIVE IMAGES] Chargement des images depuis le dossier: ${folderId}`)
+
+    // Vider le cache précédent
+    clearGoogleDriveImagesCache()
+
+    // Charger les images depuis Google Drive
+    await loadArtistImagesFromGoogleDrive(folderId)
+
+    // Récupérer les clés du cache pour les afficher
+    const { getGoogleDriveImagesCache } = require('../utils/googleDriveImages')
+    const cacheKeys = getGoogleDriveImagesCache ? Array.from(getGoogleDriveImagesCache().keys()) : []
+
+    res.json({
+      success: true,
+      message: 'Images d\'artistes chargées depuis Google Drive avec succès',
+      imagesLoaded: cacheKeys.length,
+      artists: cacheKeys
+    })
+  } catch (error: any) {
+    console.error('[GOOGLE DRIVE IMAGES] Erreur:', error)
+    res.status(500).json({ error: error.message || 'Erreur lors du chargement des images depuis Google Drive' })
+  }
+})
+
+/**
+ * Route pour vérifier le cache des images Google Drive
+ * GET /api/music/google-drive-images-cache
+ */
+router.get('/google-drive-images-cache', (req: Request, res: Response) => {
+  try {
+    const { getGoogleDriveImagesCache } = require('../utils/googleDriveImages')
+    const cache = getGoogleDriveImagesCache ? getGoogleDriveImagesCache() : new Map()
+    const cacheKeys = Array.from(cache.keys())
+    
+    res.json({
+      cacheSize: cache.size,
+      artists: cacheKeys,
+      message: cache.size > 0 
+        ? `${cache.size} image(s) chargée(s) depuis Google Drive`
+        : 'Aucune image chargée. Utilisez POST /api/music/load-artist-images-from-drive pour charger les images.'
+    })
+  } catch (error: any) {
+    console.error('[GOOGLE DRIVE IMAGES] Erreur:', error)
+    res.status(500).json({ error: error.message || 'Erreur lors de la récupération du cache' })
+  }
+})
+
+/**
  * Route proxy pour servir les images externes (évite les problèmes CORS)
  */
 router.get('/image-proxy', async (req: Request, res: Response) => {
@@ -1964,13 +2116,27 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
     }
 
     const decodedUrl = decodeURIComponent(url)
-    console.log(`[IMAGE PROXY] Requête pour: ${decodedUrl.substring(0, 100)}`)
+    console.log(`[IMAGE PROXY] Requête reçue`)
+    console.log(`[IMAGE PROXY]   URL encodée (query): ${url.substring(0, 150)}...`)
+    console.log(`[IMAGE PROXY]   URL décodée: ${decodedUrl}`)
+    console.log(`[IMAGE PROXY]   Status code attendu: 200`)
+
+    // Traitement spécial pour les URLs Google Drive
+    let finalUrl = decodedUrl
+    if (decodedUrl.includes('drive.google.com')) {
+      console.log(`[IMAGE PROXY] URL Google Drive détectée`)
+      // Si c'est export=view, essayer export=download à la place (plus fiable)
+      if (decodedUrl.includes('export=view')) {
+        finalUrl = decodedUrl.replace('export=view', 'export=download')
+        console.log(`[IMAGE PROXY] Conversion export=view -> export=download`)
+      }
+    }
 
     const https = require('https')
     const http = require('http')
-    const protocol = decodedUrl.startsWith('https') ? https : http
+    const protocol = finalUrl.startsWith('https') ? https : http
 
-    protocol.get(decodedUrl, {
+    protocol.get(finalUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
@@ -1978,15 +2144,15 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
         'Referer': 'https://www.google.com/',
         'Accept-Encoding': 'gzip, deflate, br'
       },
-      timeout: 10000
+      timeout: 15000 // Augmenter le timeout pour Google Drive
     }, (response: any) => {
-      // Gérer les redirections
+      // Gérer les redirections (Google Drive fait souvent des redirections)
       if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303 || response.statusCode === 307 || response.statusCode === 308) {
         const location = response.headers.location
         if (location) {
-          console.log(`[IMAGE PROXY] Redirection vers: ${location.substring(0, 100)}`)
+          console.log(`[IMAGE PROXY] Redirection ${response.statusCode} vers: ${location.substring(0, 100)}`)
           // Suivre la redirection
-          const redirectUrl = location.startsWith('http') ? location : new URL(location, decodedUrl).href
+          const redirectUrl = location.startsWith('http') ? location : new URL(location, finalUrl).href
           return protocol.get(redirectUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

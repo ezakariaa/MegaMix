@@ -6,6 +6,7 @@ export interface Artist {
   coverArt?: string | null
   genre?: string
   biography?: string | null
+  logo?: string | null
 }
 
 export interface Album {

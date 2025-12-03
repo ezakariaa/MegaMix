@@ -70,3 +70,4 @@ Le serveur affiche des logs pour chaque recherche :
 - `[GOOGLE DRIVE ARTIST] Image trouvée pour {artiste}: {nom_fichier}` → Succès
 - `[GOOGLE DRIVE ARTIST] Erreur lors de la recherche pour {artiste}` → Erreur
 
+

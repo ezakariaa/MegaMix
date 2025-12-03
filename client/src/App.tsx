@@ -10,10 +10,12 @@ import MobileNavFooter from './components/MobileNavFooter'
 import Home from './pages/Home'
 import Artists from './pages/Artists'
 import Albums from './pages/Albums'
+import Compilations from './pages/Compilations'
 import Genres from './pages/Genres'
 import Playlists from './pages/Playlists'
 import Library from './pages/Library'
 import AlbumDetail from './pages/AlbumDetail'
+import ArtistDetailPage from './pages/ArtistDetailPage'
 import SearchResultsPage from './pages/SearchResultsPage'
 import AnalyzeTags from './pages/AnalyzeTags'
 import './App.css'
@@ -46,7 +48,9 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/library" element={<Library />} />
                     <Route path="/artists" element={<Artists />} />
+                    <Route path="/artist/:artistId" element={<ArtistDetailPage />} />
                     <Route path="/albums" element={<Albums />} />
+                    <Route path="/compilations" element={<Compilations />} />
                     <Route path="/album/:albumId" element={<AlbumDetail />} />
                     <Route path="/genres" element={<Genres />} />
                     <Route path="/playlists" element={<Playlists />} />

@@ -26,9 +26,9 @@ function MobileNavFooter() {
       path: '/albums',
     },
     {
-      icon: 'bi-tags',
-      label: 'Genres',
-      path: '/genres',
+      icon: 'bi-collection-play',
+      label: 'Compilations',
+      path: '/compilations',
     },
     {
       icon: 'bi-list-ul',

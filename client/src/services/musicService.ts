@@ -36,15 +36,22 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('github.i
  * Gère les URLs absolues (http/https), les URLs relatives (/api/...), et les data URLs
  */
 export function buildImageUrl(imageUrl: string | null | undefined): string | null {
-  if (!imageUrl) return null
+  if (!imageUrl) {
+    console.log('[buildImageUrl] imageUrl est null ou undefined')
+    return null
+  }
+  
+  console.log(`[buildImageUrl] URL d'entrée: ${imageUrl.substring(0, 100)}...`)
   
   // Si c'est déjà une URL absolue (http/https), l'utiliser telle quelle
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    console.log('[buildImageUrl] URL absolue détectée, utilisation directe')
     return imageUrl
   }
   
   // Si c'est une data URL (base64), l'utiliser telle quelle
   if (imageUrl.startsWith('data:')) {
+    console.log('[buildImageUrl] Data URL détectée, utilisation directe')
     return imageUrl
   }
   
@@ -52,13 +59,19 @@ export function buildImageUrl(imageUrl: string | null | undefined): string | nul
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
   const cleanUrl = baseUrl.replace(/\/$/, '')
   
+  console.log(`[buildImageUrl] Base URL: ${baseUrl}, Clean URL: ${cleanUrl}`)
+  
   // Si l'URL commence déjà par /, l'utiliser directement
   if (imageUrl.startsWith('/')) {
-    return `${cleanUrl}${imageUrl}`
+    const finalUrl = `${cleanUrl}${imageUrl}`
+    console.log(`[buildImageUrl] URL relative avec /, URL finale: ${finalUrl.substring(0, 150)}...`)
+    return finalUrl
   }
   
   // Sinon, ajouter / devant
-  return `${cleanUrl}/${imageUrl}`
+  const finalUrl = `${cleanUrl}/${imageUrl}`
+  console.log(`[buildImageUrl] URL relative sans /, URL finale: ${finalUrl.substring(0, 150)}...`)
+  return finalUrl
 }
 
 export interface Album {
@@ -100,6 +113,7 @@ export interface Artist {
   coverArt?: string | null
   genre?: string
   biography?: string | null
+  logo?: string | null
 }
 
 export interface Genre {

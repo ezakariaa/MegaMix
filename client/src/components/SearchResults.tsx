@@ -78,7 +78,7 @@ function SearchResults({ results, searchQuery = '', onClose }: SearchResultsProp
             {artists.slice(0, 6).map((artist) => (
               <Link
                 key={artist.id}
-                to="/artists"
+                to={`/artist/${artist.id}`}
                 className="search-results-item"
                 onClick={onClose}
               >

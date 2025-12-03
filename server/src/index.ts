@@ -94,4 +94,32 @@ app.listen(PORT, HOST, () => {
   } else {
     console.log(`⚠️  Clé API Google Drive non configurée - l'import depuis Google Drive ne fonctionnera pas`)
   }
+
+  // Charger automatiquement les images d'artistes depuis Google Drive si configuré
+  const ARTIST_IMAGES_FOLDER_ID = process.env.ARTIST_IMAGES_FOLDER_ID
+  if (ARTIST_IMAGES_FOLDER_ID && process.env.GOOGLE_API_KEY) {
+    console.log(`📁 Chargement automatique des images d'artistes depuis Google Drive...`)
+    console.log(`📁 Folder ID: ${ARTIST_IMAGES_FOLDER_ID}`)
+    const { loadArtistImagesFromGoogleDrive } = require('./utils/googleDriveImages')
+    loadArtistImagesFromGoogleDrive(ARTIST_IMAGES_FOLDER_ID)
+      .then(() => {
+        console.log(`✅ Images d'artistes chargées depuis Google Drive`)
+        // Vérifier le cache après chargement
+        const { getGoogleDriveImagesCache } = require('./utils/googleDriveImages')
+        const cache = getGoogleDriveImagesCache()
+        console.log(`📊 Cache Google Drive: ${cache.size} image(s) chargée(s)`)
+        if (cache.size > 0) {
+          const cacheKeys = Array.from(cache.keys())
+          console.log(`📊 Exemples d'artistes dans le cache: ${cacheKeys.slice(0, 5).join(', ')}`)
+        }
+      })
+      .catch((err: Error) => {
+        console.warn(`⚠️  Erreur lors du chargement des images depuis Google Drive:`, err.message)
+        console.error(`⚠️  Détails de l'erreur:`, err)
+      })
+  } else if (ARTIST_IMAGES_FOLDER_ID) {
+    console.log(`⚠️  ARTIST_IMAGES_FOLDER_ID configuré mais GOOGLE_API_KEY manquante`)
+  } else {
+    console.log(`ℹ️  ARTIST_IMAGES_FOLDER_ID non configuré - les images Google Drive ne seront pas chargées automatiquement`)
+  }
 })

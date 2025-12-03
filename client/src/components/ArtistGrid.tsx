@@ -14,9 +14,8 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null)
 
   const handleArtistClick = (artist: Artist) => {
-    // Naviguer vers la page de recherche avec le nom de l'artiste
-    // Cela affichera les albums, compilations et pistes de cet artiste
-    navigate(`/search?q=${encodeURIComponent(artist.name)}`)
+    // Naviguer vers la page de détail de l'artiste
+    navigate(`/artist/${artist.id}`)
   }
 
   const handlePlayClick = async (e: React.MouseEvent, artist: Artist) => {
@@ -80,6 +79,13 @@ function ArtistGrid({ artists }: ArtistGridProps) {
       {artists.map((artist) => {
         // Utiliser UNIQUEMENT la photo d'artiste (pas de fallback vers couverture d'album)
         const artistImage = artist.coverArt
+        const builtImageUrl = artistImage ? buildImageUrl(artistImage) : null
+
+        if (artistImage) {
+          console.log(`[ArtistGrid] Artiste: ${artist.name}`)
+          console.log(`[ArtistGrid]   coverArt (brut): ${artistImage}`)
+          console.log(`[ArtistGrid]   URL construite: ${builtImageUrl}`)
+        }
 
         return (
           <div 
@@ -88,12 +94,19 @@ function ArtistGrid({ artists }: ArtistGridProps) {
             onClick={() => handleArtistClick(artist)}
           >
             <div className="album-cover-container">
-              {artistImage ? (
+              {artistImage && builtImageUrl ? (
                 <img 
-                  src={buildImageUrl(artistImage) || ''} 
+                  src={builtImageUrl} 
                   alt={artist.name}
                   className="album-cover"
+                  onLoad={() => {
+                    console.log(`[ArtistGrid] ✓ Image chargée avec succès pour ${artist.name}`)
+                  }}
                   onError={(e) => {
+                    console.error(`[ArtistGrid] ✗ Erreur chargement image pour ${artist.name}:`, {
+                      originalUrl: artistImage,
+                      builtUrl: builtImageUrl
+                    })
                     // En cas d'erreur, afficher le placeholder
                     const target = e.target as HTMLImageElement
                     if (target) {

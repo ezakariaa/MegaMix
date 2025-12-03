@@ -14,12 +14,49 @@ function RightSidebar() {
     if (currentTrack?.artistId) {
       console.log('[RightSidebar] Chargement de l\'artiste avec ID:', currentTrack.artistId)
       setLoadingArtist(true)
+      
+      // Charger l'artiste immédiatement
       getArtistById(currentTrack.artistId)
         .then((artistData) => {
           console.log('[RightSidebar] Artiste chargé:', artistData)
-          console.log('[RightSidebar] coverArt:', artistData?.coverArt)
-          console.log('[RightSidebar] biography:', artistData?.biography)
+          console.log('[RightSidebar] coverArt (brut):', artistData?.coverArt)
+          const builtUrl = artistData?.coverArt ? buildImageUrl(artistData.coverArt) : null
+          console.log('[RightSidebar] coverArt URL complète (buildImageUrl):', builtUrl)
           setArtist(artistData)
+          
+          // Si l'artiste n'a pas d'image, réessayer rapidement (Google Drive est rapide)
+          if (!artistData?.coverArt) {
+            let attempts = 0
+            const maxAttempts = 5 // Réduit à 5 tentatives car Google Drive est rapide
+            const checkImage = () => {
+              attempts++
+              // Délai court : 500ms, 1s, 1.5s, puis 2s pour les suivantes
+              const delay = attempts <= 3 ? attempts * 500 : 2000
+              setTimeout(() => {
+                console.log(`[RightSidebar] Tentative ${attempts}/${maxAttempts} pour récupérer l'image Google Drive`)
+                getArtistById(currentTrack.artistId)
+                  .then((updatedArtist) => {
+                    console.log('[RightSidebar] Artiste mis à jour:', updatedArtist)
+                    console.log('[RightSidebar] coverArt mis à jour:', updatedArtist?.coverArt)
+                    if (updatedArtist?.coverArt) {
+                      setArtist(updatedArtist)
+                    } else if (attempts < maxAttempts) {
+                      checkImage()
+                    } else {
+                      console.log('[RightSidebar] Nombre maximum de tentatives atteint')
+                    }
+                  })
+                  .catch((error) => {
+                    console.error('[RightSidebar] Erreur lors de la récupération de l\'image:', error)
+                    if (attempts < maxAttempts) {
+                      checkImage()
+                    }
+                  })
+              }, delay)
+            }
+            // Démarrer la première tentative après 500ms
+            setTimeout(checkImage, 500)
+          }
         })
         .catch((error) => {
           console.error('[RightSidebar] Erreur lors du chargement de l\'artiste:', error)
@@ -109,30 +146,41 @@ function RightSidebar() {
         </div>
 
         {/* Bannière de l'artiste */}
-        {currentTrack && artist && (
+        {currentTrack && (artist || currentTrack.artistId) && (
           <div className="right-sidebar-section right-sidebar-section-artist">
             <div className="artist-banner">
               {/* Image bannière avec overlay */}
               <div className="artist-banner-image-container">
-                {artist.coverArt ? (
+                {artist?.coverArt ? (
                   <img 
                     src={buildImageUrl(artist.coverArt) || ''}
                     alt={artist.name}
                     className="artist-banner-image"
-                    onLoad={() => console.log('[RightSidebar] Image chargée avec succès')}
+                    onLoad={() => {
+                      console.log('[RightSidebar] ✓ Image bannière chargée avec succès:', buildImageUrl(artist.coverArt))
+                    }}
                     onError={(e) => {
-                      console.warn('[RightSidebar] Erreur chargement image, affichage du placeholder:', artist.coverArt)
-                      // Masquer l'image en cas d'erreur et afficher le placeholder
+                      const imageUrl = buildImageUrl(artist.coverArt)
+                      console.error('[RightSidebar] ✗ Erreur chargement image bannière:', {
+                        originalUrl: artist.coverArt,
+                        builtUrl: imageUrl,
+                        artistName: artist.name
+                      })
+                      // Masquer l'image en cas d'erreur
                       const target = e.target as HTMLImageElement
                       if (target) {
                         target.style.display = 'none'
-                        // Afficher le placeholder si ce n'est pas déjà fait
+                        // Afficher le placeholder
                         const container = target.parentElement
-                        if (container && !container.querySelector('.artist-banner-image-placeholder')) {
-                          const placeholder = document.createElement('div')
-                          placeholder.className = 'artist-banner-image-placeholder'
-                          placeholder.innerHTML = '<i class="bi bi-person-circle"></i>'
-                          container.appendChild(placeholder)
+                        if (container) {
+                          let placeholder = container.querySelector('.artist-banner-image-placeholder') as HTMLElement
+                          if (!placeholder) {
+                            placeholder = document.createElement('div')
+                            placeholder.className = 'artist-banner-image-placeholder'
+                            placeholder.innerHTML = '<i class="bi bi-person-circle"></i>'
+                            container.appendChild(placeholder)
+                          }
+                          placeholder.style.display = 'flex'
                         }
                       }
                     }}
@@ -140,66 +188,73 @@ function RightSidebar() {
                 ) : (
                   <div className="artist-banner-image-placeholder">
                     <i className="bi bi-person-circle"></i>
+                    {console.warn('[RightSidebar] Aucune coverArt pour l\'artiste:', artist?.name)}
                   </div>
                 )}
                 <div className="artist-banner-overlay">
-                  <h2 className="artist-banner-name-overlay">{artist.name}</h2>
+                  <h2 className="artist-banner-name-overlay">{artist?.name || currentTrack.artist}</h2>
                 </div>
               </div>
 
               {/* Section info avec stats et synopsis */}
-              <div className="artist-banner-info">
-                <div className="artist-banner-header">
-                  <div className="artist-banner-header-left">
-                    <div className="artist-banner-stats">
-                      {artist.albumCount !== undefined && (
-                        <span className="artist-stat">
-                          {artist.albumCount} {artist.albumCount === 1 ? 'album' : 'albums'}
-                        </span>
-                      )}
-                      {artist.trackCount !== undefined && (
-                        <span className="artist-stat">
-                          {artist.trackCount} {artist.trackCount === 1 ? 'piste' : 'pistes'}
-                        </span>
-                      )}
-                      {artist.genre && (
-                        <span className="artist-stat artist-genre">{artist.genre}</span>
-                      )}
-                    </div>
-                  </div>
-                  <button 
-                    className="artist-play-button" 
-                    onClick={handlePlayArtist}
-                    disabled={loadingPlay}
-                    aria-label={isCurrentArtistPlaying ? 'Pause' : 'Lire l\'artiste'}
-                  >
-                    {loadingPlay ? (
-                      <div className="spinner-border spinner-border-sm" role="status">
-                        <span className="visually-hidden">Chargement...</span>
+              {artist && (
+                <div className="artist-banner-info">
+                  <div className="artist-banner-header">
+                    <div className="artist-banner-header-left">
+                      <div className="artist-banner-stats">
+                        {artist.albumCount !== undefined && (
+                          <span className="artist-stat">
+                            {artist.albumCount} {artist.albumCount === 1 ? 'album' : 'albums'}
+                          </span>
+                        )}
+                        {artist.trackCount !== undefined && (
+                          <span className="artist-stat">
+                            {artist.trackCount} {artist.trackCount === 1 ? 'piste' : 'pistes'}
+                          </span>
+                        )}
+                        {artist.genre && (
+                          <span className="artist-stat artist-genre">{artist.genre}</span>
+                        )}
                       </div>
-                    ) : (
-                      <i className={`bi ${isCurrentArtistPlaying ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
-                    )}
-                  </button>
-                </div>
-
-                {/* Synopsis/Biographie */}
-                {artist.biography && (
-                  <div className="artist-banner-biography">
-                    <h4 className="artist-biography-title">À propos</h4>
-                    <p className="artist-biography-text">{artist.biography}</p>
+                    </div>
+                    <button 
+                      className="artist-play-button" 
+                      onClick={handlePlayArtist}
+                      disabled={loadingPlay}
+                      aria-label={isCurrentArtistPlaying ? 'Pause' : 'Lire l\'artiste'}
+                    >
+                      {loadingPlay ? (
+                        <div className="spinner-border spinner-border-sm" role="status">
+                          <span className="visually-hidden">Chargement...</span>
+                        </div>
+                      ) : (
+                        <i className={`bi ${isCurrentArtistPlaying ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+                      )}
+                    </button>
                   </div>
-                )}
-              </div>
+
+                  {/* Synopsis/Biographie */}
+                  {artist.biography && (
+                    <div className="artist-banner-biography">
+                      <h4 className="artist-biography-title">À propos</h4>
+                      <p className="artist-biography-text">{artist.biography}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
         
         {/* Debug: Afficher les infos même si pas d'artiste chargé */}
-        {currentTrack && !artist && !loadingArtist && (
+        {currentTrack && !artist && !loadingArtist && currentTrack.artistId && (
           <div className="right-sidebar-section">
             <div className="right-sidebar-placeholder">
-              <p>Chargement des informations de l'artiste...</p>
+              <p>Artiste non trouvé</p>
+              <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '8px' }}>
+                ID: {currentTrack.artistId}<br />
+                Nom: {currentTrack.artist}
+              </p>
             </div>
           </div>
         )}

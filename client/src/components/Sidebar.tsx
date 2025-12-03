@@ -64,9 +64,9 @@ function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       path: '/albums',
     },
     {
-      icon: 'bi-tags',
-      label: 'Genres',
-      path: '/genres',
+      icon: 'bi-collection',
+      label: 'Compilations',
+      path: '/compilations',
     },
     {
       icon: 'bi-list-ul',

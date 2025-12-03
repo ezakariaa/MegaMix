@@ -1,0 +1,247 @@
+.artist-detail-page {
+  padding: 24px;
+  min-height: calc(100vh - 200px);
+}
+
+.artist-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  color: var(--spotify-light-gray);
+  text-align: center;
+}
+
+.artist-loading i {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.artist-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  color: var(--spotify-light-gray);
+  text-align: center;
+}
+
+.artist-not-found i {
+  font-size: 4rem;
+  margin-bottom: 24px;
+  color: #ff6b6b;
+}
+
+.artist-not-found h2 {
+  font-size: 1.5rem;
+  color: #ffffff;
+  margin-bottom: 24px;
+}
+
+.artist-header {
+  margin-bottom: 48px;
+}
+
+.artist-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.artist-title i {
+  color: var(--spotify-green);
+}
+
+.artist-logo-container {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.artist-logo {
+  max-height: 120px;
+  max-width: 400px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: brightness(1.1);
+  transition: opacity 0.3s ease;
+}
+
+.artist-logo-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--spotify-light-gray);
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+  padding: 12px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  width: fit-content;
+  opacity: 0.6;
+}
+
+.artist-logo-placeholder i {
+  font-size: 1.2rem;
+  opacity: 0.6;
+}
+
+.artist-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.artist-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.artist-stat {
+  padding: 8px 16px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.artist-stat.artist-genre {
+  background-color: rgba(29, 185, 84, 0.2);
+  color: var(--spotify-green);
+}
+
+.artist-play-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 32px;
+  background-color: var(--spotify-green);
+  color: #000000;
+  border: none;
+  border-radius: 30px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.artist-play-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  background-color: #1ed760;
+}
+
+.artist-play-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.artist-biography {
+  margin-bottom: 32px;
+  padding: 24px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.artist-biography h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 16px;
+}
+
+.artist-biography p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--spotify-light-gray);
+  margin: 0;
+}
+
+.artist-albums-section {
+  margin-top: 48px;
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.section-title i {
+  color: var(--spotify-green);
+}
+
+.artist-no-albums {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  color: var(--spotify-light-gray);
+  text-align: center;
+}
+
+.artist-no-albums i {
+  font-size: 4rem;
+  margin-bottom: 24px;
+  opacity: 0.5;
+}
+
+.artist-no-albums p {
+  font-size: 1.1rem;
+  color: #ffffff;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .artist-detail-page {
+    padding: 16px;
+  }
+
+  .artist-title {
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+
+  .artist-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .artist-play-button {
+    width: 100%;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+  }
+}
+
+
