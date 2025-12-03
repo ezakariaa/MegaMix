@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Artist, getArtistAlbums, getAlbumTracks, buildImageUrl } from '../services/musicService'
+import { Artist, getArtistAlbums, getAlbumTracks, buildImageUrl, getAlbums, getTracks, Album, Track } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './AlbumGrid.css' // Réutiliser les styles d'AlbumGrid
 
@@ -12,6 +12,63 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   const navigate = useNavigate()
   const { playAlbum, currentTrack, isPlaying, togglePlay } = usePlayer()
   const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null)
+  const [allAlbums, setAllAlbums] = useState<Album[]>([])
+  const [allTracks, setAllTracks] = useState<Track[]>([])
+
+  // Charger tous les albums et pistes pour vérifier les compilations
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [albums, tracks] = await Promise.all([
+          getAlbums(),
+          getTracks()
+        ])
+        setAllAlbums(albums)
+        setAllTracks(tracks)
+      } catch (error) {
+        console.error('Erreur lors du chargement des albums et pistes:', error)
+      }
+    }
+    loadData()
+  }, [])
+
+  // Fonction pour vérifier si un album est une compilation
+  const isCompilationAlbum = (album: Album): boolean => {
+    const artistLower = album.artist.toLowerCase()
+    return artistLower.includes('various') || 
+           artistLower.includes('compilation') ||
+           artistLower.includes('various artists') ||
+           artistLower === 'various'
+  }
+
+  // Calculer les compilations pour chaque artiste
+  const artistCompilations = useMemo(() => {
+    const compilationsMap = new Map<string, string[]>()
+    
+    artists.forEach(artist => {
+      const compilationTitles: string[] = []
+      
+      // Trouver toutes les compilations où l'artiste apparaît
+      allAlbums.forEach(album => {
+        if (isCompilationAlbum(album)) {
+          // Vérifier si l'artiste apparaît dans les pistes de cette compilation
+          const hasArtistTracks = allTracks.some(track => 
+            track.albumId === album.id && track.artistId === artist.id
+          )
+          
+          if (hasArtistTracks) {
+            compilationTitles.push(album.title)
+          }
+        }
+      })
+      
+      if (compilationTitles.length > 0) {
+        compilationsMap.set(artist.id, compilationTitles)
+      }
+    })
+    
+    return compilationsMap
+  }, [artists, allAlbums, allTracks])
 
   const handleArtistClick = (artist: Artist) => {
     // Naviguer vers la page de détail de l'artiste
@@ -29,7 +86,7 @@ function ArtistGrid({ artists }: ArtistGridProps) {
       const albums = await getArtistAlbums(artist.id)
       
       // Récupérer toutes les pistes de tous les albums de l'artiste
-      const allTracks = []
+      const playerTracksList = []
       for (const album of albums) {
         const tracks = await getAlbumTracks(album.id)
         const playerTracks = tracks.map(track => ({
@@ -43,10 +100,10 @@ function ArtistGrid({ artists }: ArtistGridProps) {
           duration: track.duration,
           filePath: track.filePath,
         }))
-        allTracks.push(...playerTracks)
+        playerTracksList.push(...playerTracks)
       }
 
-      if (allTracks.length > 0) {
+      if (playerTracksList.length > 0) {
         // Vérifier si une piste de cet artiste est en cours de lecture
         const isArtistPlaying = currentTrack?.artistId === artist.id
         
@@ -54,7 +111,7 @@ function ArtistGrid({ artists }: ArtistGridProps) {
           togglePlay()
         } else {
           // Jouer toutes les pistes de l'artiste
-          playAlbum(albums[0]?.id || artist.id, allTracks)
+          playAlbum(albums[0]?.id || artist.id, playerTracksList)
         }
       }
     } catch (error) {
@@ -146,14 +203,19 @@ function ArtistGrid({ artists }: ArtistGridProps) {
               <h3 className="album-title" title={artist.name}>
                 {artist.name}
               </h3>
-              {artist.trackCount && (
+              {artist.trackCount !== undefined && artist.trackCount > 0 && (
                 <p className="album-track-count">
                   {artist.trackCount} {artist.trackCount === 1 ? 'piste' : 'pistes'}
                 </p>
               )}
-              {artist.albumCount && (
-                <p className="album-year">
+              {artist.albumCount !== undefined && (
+                <p className="album-track-count">
                   {artist.albumCount} {artist.albumCount === 1 ? 'album' : 'albums'}
+                </p>
+              )}
+              {artistCompilations.has(artist.id) && (
+                <p className="album-year">
+                  {artistCompilations.get(artist.id)?.length} compilation{artistCompilations.get(artist.id)!.length > 1 ? 's' : ''}
                 </p>
               )}
             </div>
