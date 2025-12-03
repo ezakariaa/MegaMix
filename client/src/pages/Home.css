@@ -138,6 +138,31 @@
   font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
+/* Sur petits écrans, mettre le nombre d'albums en dessous du titre "Bibliothèque" */
+@media (max-width: 768px) {
+  .library-page .page-title {
+    display: block;
+  }
+
+  .library-page .page-title .album-count {
+    display: block;
+    margin-top: 4px;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .library-page .page-title {
+    display: block;
+  }
+
+  .library-page .page-title .album-count {
+    display: block;
+    margin-top: 4px;
+    margin-left: 0;
+  }
+}
+
 .album-count {
   color: var(--spotify-green);
   font-weight: 700;

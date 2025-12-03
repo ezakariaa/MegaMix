@@ -313,7 +313,7 @@ function Library() {
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h1 className="page-title mb-0">
                   <i className="bi bi-music-note-list me-2"></i>
-                  Bibliothèque : <span className="album-count">{albums.length}</span> albums
+                  Bibliothèque<span className="album-count">{albums.length}<span className="album-text"> albums</span></span>
                 </h1>
                 <div className="d-flex align-items-center gap-2">
                   <button
