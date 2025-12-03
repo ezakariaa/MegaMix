@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Container } from 'react-bootstrap'
-import { Album, getAlbumTracks, Track } from '../services/musicService'
+import { Album, getAlbumTracks, Track, buildImageUrl } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import { getAlbums } from '../services/musicService'
 import './AlbumDetail.css'
@@ -147,7 +147,7 @@ function AlbumDetail() {
       <div className="album-detail-header">
         <div className="album-detail-cover">
           {album.coverArt ? (
-            <img src={album.coverArt} alt={`${album.title} - ${album.artist}`} />
+            <img src={buildImageUrl(album.coverArt) || ''} alt={`${album.title} - ${album.artist}`} />
           ) : (
             <div className="album-cover-placeholder-large">
               <i className="bi bi-vinyl"></i>
