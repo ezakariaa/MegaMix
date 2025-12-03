@@ -86,13 +86,14 @@ body.sidebar-collapsed .main-content {
 @media (max-width: 992px) {
   .app-layout {
     flex-direction: column;
+    margin-top: 50px; /* Assurer l'espace pour le header fixe */
   }
 
   .main-content {
     width: 100%;
     margin-left: 0;
     padding: 24px 16px;
-    margin-top: 0;
+    padding-top: 24px; /* Assurer le padding-top pour éviter que le contenu soit masqué */
   }
 
   body.sidebar-collapsed .main-content {
@@ -109,17 +110,20 @@ body.sidebar-collapsed .main-content {
 
   .main-content {
     padding: 16px 12px;
+    padding-top: 24px; /* Padding supplémentaire pour éviter que le contenu soit masqué par le header */
     min-height: calc(100vh - 50px - 130px); /* 70px player + 60px nav */
   }
 }
 
 @media (max-width: 480px) {
   .app-layout {
+    margin-top: 50px; /* Assurer l'espace pour le header fixe */
     /* margin-bottom géré par MobileNavFooter.css pour inclure le footer de navigation */
   }
 
   .main-content {
     padding: 12px 8px;
+    padding-top: 20px; /* Padding supplémentaire pour éviter que le contenu soit masqué par le header */
     min-height: calc(100vh - 50px - 120px); /* 65px player + 55px nav */
   }
 }

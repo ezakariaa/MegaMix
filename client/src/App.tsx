@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { PlayerProvider } from './contexts/PlayerContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import ScrollToTop from './components/ScrollToTop'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import RightSidebar from './components/RightSidebar'
@@ -38,6 +39,7 @@ function App() {
     <ErrorBoundary>
       <PlayerProvider>
         <Router basename={basename}>
+          <ScrollToTop />
           <div className="App">
             <Navbar onMenuToggle={handleMenuToggle} />
             <div className="app-layout">

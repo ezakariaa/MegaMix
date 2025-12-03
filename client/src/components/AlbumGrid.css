@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 16px;
-  padding: 24px 0;
+  padding: 8px 0 24px 0;
 }
 
 .album-card {
@@ -172,7 +172,7 @@
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 14px;
-    padding: 20px 0;
+    padding: 6px 0 20px 0;
   }
 }
 
@@ -180,7 +180,7 @@
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 12px;
-    padding: 16px 0;
+    padding: 6px 0 16px 0;
   }
 
   .album-title {
@@ -201,7 +201,7 @@
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 10px;
-    padding: 12px 0;
+    padding: 6px 0 12px 0;
   }
 
   .album-cover-container {

@@ -224,6 +224,7 @@
 @media (max-width: 768px) {
   .navbar-container {
     gap: 8px;
+    grid-template-columns: 1fr; /* Une seule colonne pour centrer la recherche */
   }
 
   .navbar-brand {
@@ -234,9 +235,14 @@
     font-size: 1.2rem;
   }
 
+  /* Masquer le menu burger sur petits écrans */
   .navbar-menu-toggle {
-    font-size: 1.3rem;
-    margin-right: 12px;
+    display: none !important;
+  }
+
+  /* Masquer le bouton de connexion sur petits écrans */
+  .navbar-right {
+    display: none !important;
   }
 
   .navbar-search-container {
@@ -257,24 +263,16 @@
     margin-right: 6px;
   }
 
-  .navbar-login-btn {
-    padding: 0 10px;
-    font-size: 0.85rem;
-    height: 28px; /* Même hauteur que la barre de recherche sur mobile */
-  }
-
   .navbar-left {
     padding-left: 0;
-  }
-
-  .navbar-right {
-    padding-right: 0;
+    justify-content: center; /* Centrer le logo */
   }
 }
 
 @media (max-width: 480px) {
   .navbar-container {
     gap: 6px;
+    grid-template-columns: 1fr; /* Une seule colonne pour centrer la recherche */
   }
 
   .navbar-brand {
@@ -283,6 +281,16 @@
 
   .navbar-brand i {
     font-size: 1.1rem;
+  }
+
+  /* Masquer le menu burger sur très petits écrans */
+  .navbar-menu-toggle {
+    display: none !important;
+  }
+
+  /* Masquer le bouton de connexion sur très petits écrans */
+  .navbar-right {
+    display: none !important;
   }
 
   .navbar-search-container {
@@ -303,22 +311,8 @@
     margin-right: 4px;
   }
 
-  .navbar-login-btn {
-    padding: 0 8px;
-    font-size: 0.8rem;
-    height: 26px; /* Même hauteur que la barre de recherche sur petit mobile */
-  }
-
-  .navbar-login-btn i {
-    font-size: 1.1rem;
-    margin-right: 0;
-  }
-
   .navbar-left {
     padding-left: 0;
-  }
-
-  .navbar-right {
-    padding-right: 0;
+    justify-content: center; /* Centrer le logo */
   }
 }

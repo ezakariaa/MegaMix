@@ -1,12 +1,34 @@
 .home-page {
-  padding: 0;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+/* Assurer que le contenu n'est pas masqué par le header fixe sur petits écrans */
+@media (max-width: 992px) {
+  .home-page {
+    padding-top: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-page {
+    padding-top: 24px;
+  }
 }
 
 .page-title {
   color: #ffffff;
   font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
@@ -46,9 +68,29 @@
 
 .section-title {
   color: #ffffff;
-  font-size: 1.5rem;
+  font-size: 1.5rem !important;
+  font-family:Nunito Sans, Helvetica Neue, Helvetica, Arial, sans-serif; ;
   font-weight: 700;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
+}
+
+/* Assurer que le premier titre n'est pas masqué par le header sur petits écrans */
+@media (max-width: 992px) {
+  .home-page > .row:first-of-type .section-title:first-of-type {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page > .row:first-of-type .section-title:first-of-type {
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-page > .row:first-of-type .section-title:first-of-type {
+    margin-top: 16px;
+  }
 }
 
 .drag-drop-instruction {
@@ -230,7 +272,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   gap: 16px;
-  padding: 24px 0;
+  padding: 8px 0 24px 0;
   scrollbar-width: none; /* Masquer la barre de défilement par défaut (Firefox) */
   -ms-overflow-style: none; /* Masquer la barre de défilement (IE/Edge) */
   grid-template-columns: none !important;
@@ -247,29 +289,13 @@
   display: none;
 }
 
-/* Afficher la barre de défilement au survol */
+/* Masquer la barre de défilement au survol également */
 .scrollable-albums .album-grid:hover::-webkit-scrollbar {
-  display: block;
-  height: 8px;
+  display: none;
 }
 
 .scrollable-albums .album-grid:hover {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--spotify-gray) var(--spotify-dark);
-}
-
-.scrollable-albums .album-grid:hover::-webkit-scrollbar-track {
-  background: var(--spotify-dark);
-  border-radius: 4px;
-}
-
-.scrollable-albums .album-grid:hover::-webkit-scrollbar-thumb {
-  background: var(--spotify-gray);
-  border-radius: 4px;
-}
-
-.scrollable-albums .album-grid:hover::-webkit-scrollbar-thumb:hover {
-  background: #3e3e3e;
+  scrollbar-width: none; /* Firefox - masquer même au survol */
 }
 
 .scrollable-albums .album-grid.active {
@@ -280,25 +306,13 @@
   pointer-events: none;
 }
 
-/* Afficher la barre de défilement pendant le défilement actif */
+/* Masquer la barre de défilement même pendant le défilement actif */
 .scrollable-albums .album-grid.active::-webkit-scrollbar {
-  display: block;
-  height: 8px;
+  display: none;
 }
 
 .scrollable-albums .album-grid.active {
-  scrollbar-width: thin;
-  scrollbar-color: var(--spotify-gray) var(--spotify-dark);
-}
-
-.scrollable-albums .album-grid.active::-webkit-scrollbar-track {
-  background: var(--spotify-dark);
-  border-radius: 4px;
-}
-
-.scrollable-albums .album-grid.active::-webkit-scrollbar-thumb {
-  background: var(--spotify-gray);
-  border-radius: 4px;
+  scrollbar-width: none; /* Firefox - masquer même pendant le défilement */
 }
 
 .scrollable-albums .album-card {
@@ -333,7 +347,7 @@
   
   .scrollable-albums .album-grid {
     gap: 12px;
-    padding: 20px 0;
+    padding: 6px 0 20px 0;
   }
 }
 
@@ -341,24 +355,24 @@
 @media (max-width: 992px) {
   .page-title {
     font-size: 1.75rem;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
   }
 
   .section-title {
-    font-size: 1.25rem;
-    margin-bottom: 20px;
+    font-size: 1.4rem !important;
+    margin-bottom: 10px;
   }
 }
 
 @media (max-width: 768px) {
   .page-title {
     font-size: 1.5rem;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
   }
 
   .section-title {
-    font-size: 1.1rem;
-    margin-bottom: 16px;
+    font-size: 1.3rem !important;
+    margin-bottom: 8px;
   }
 
   .spotify-card {
@@ -396,10 +410,12 @@
 @media (max-width: 480px) {
   .page-title {
     font-size: 1.25rem;
+    margin-bottom: 8px;
   }
 
   .section-title {
-    font-size: 1rem;
+    font-size: 1.25rem !important;
+    margin-bottom: 8px;
   }
 
   .drag-drop-instruction {
