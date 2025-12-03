@@ -172,7 +172,7 @@
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 14px;
-    padding: 6px 0 20px 0;
+    padding: 6px 0 30px 0; /* Marge supplémentaire en bas pour éviter que le contenu soit trop proche du player */
   }
 }
 
@@ -180,7 +180,7 @@
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 12px;
-    padding: 6px 0 16px 0;
+    padding: 6px 0 40px 0; /* Marge supplémentaire en bas pour éviter que le contenu soit trop proche du player */
   }
 
   .album-title {
@@ -201,7 +201,7 @@
   .album-grid {
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 10px;
-    padding: 6px 0 12px 0;
+    padding: 6px 0 50px 0; /* Marge supplémentaire en bas pour éviter que le contenu soit trop proche du player */
   }
 
   .album-cover-container {

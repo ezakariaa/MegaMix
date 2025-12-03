@@ -94,6 +94,7 @@ body.sidebar-collapsed .main-content {
     margin-left: 0;
     padding: 24px 16px;
     padding-top: 24px; /* Assurer le padding-top pour éviter que le contenu soit masqué */
+    padding-bottom: 40px; /* Marge supplémentaire en bas pour éviter que le contenu soit trop proche du player */
   }
 
   body.sidebar-collapsed .main-content {
@@ -111,6 +112,7 @@ body.sidebar-collapsed .main-content {
   .main-content {
     padding: 16px 12px;
     padding-top: 24px; /* Padding supplémentaire pour éviter que le contenu soit masqué par le header */
+    padding-bottom: 50px; /* Marge supplémentaire en bas pour éviter que le contenu soit trop proche du player */
     min-height: calc(100vh - 50px - 130px); /* 70px player + 60px nav */
   }
 }
@@ -124,6 +126,7 @@ body.sidebar-collapsed .main-content {
   .main-content {
     padding: 12px 8px;
     padding-top: 20px; /* Padding supplémentaire pour éviter que le contenu soit masqué par le header */
+    padding-bottom: 60px; /* Marge supplémentaire en bas pour éviter que le contenu soit trop proche du player */
     min-height: calc(100vh - 50px - 120px); /* 65px player + 55px nav */
   }
 }

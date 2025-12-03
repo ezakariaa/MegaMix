@@ -24,12 +24,118 @@
   }
 }
 
+/* Styles pour la page Bibliothèque */
+.library-page {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+/* Assurer que le contenu n'est pas masqué par le header fixe sur petits écrans */
+@media (max-width: 992px) {
+  .library-page {
+    padding-top: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .library-page {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .library-page {
+    padding-top: 24px;
+  }
+}
+
+/* Styles pour les pages Artistes, Albums et Compilations */
+.artists-page,
+.albums-page {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+/* Assurer que le contenu n'est pas masqué par le header fixe sur petits écrans */
+@media (max-width: 992px) {
+  .artists-page,
+  .albums-page {
+    padding-top: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .artists-page,
+  .albums-page {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .artists-page,
+  .albums-page {
+    padding-top: 24px;
+  }
+}
+
+/* Assurer que le premier titre de la page Bibliothèque n'est pas masqué par le header sur petits écrans */
+@media (max-width: 992px) {
+  .library-page .page-title:first-of-type {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .library-page .page-title:first-of-type {
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .library-page .page-title:first-of-type {
+    margin-top: 16px;
+  }
+}
+
+/* Assurer que le premier titre des pages Artistes, Albums et Compilations n'est pas masqué par le header sur petits écrans */
+@media (max-width: 992px) {
+  .artists-page .page-title:first-of-type,
+  .albums-page .page-title:first-of-type {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .artists-page .page-title:first-of-type,
+  .albums-page .page-title:first-of-type {
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .artists-page .page-title:first-of-type,
+  .albums-page .page-title:first-of-type {
+    margin-top: 16px;
+  }
+}
+
 .page-title {
   color: #ffffff;
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 12px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Police Nunito Sans pour les titres des pages Bibliothèque, Artistes, Albums et Compilations */
+.library-page .page-title,
+.artists-page .page-title,
+.albums-page .page-title {
+  font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
 .album-count {
@@ -362,6 +468,26 @@
     font-size: 1.4rem !important;
     margin-bottom: 10px;
   }
+
+  /* Cacher les boutons d'action sur écrans moyens pour la page Bibliothèque */
+  .library-page .selection-button,
+  .library-page .delete-button,
+  .library-page .google-drive-button,
+  .library-page .reanalyze-button {
+    display: none !important;
+  }
+
+  /* Aligner le filtre à droite sur écrans moyens */
+  .library-page .d-flex.justify-content-between.align-items-center {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+
+  .library-page .d-flex.align-items-center.gap-2 {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 768px) {
@@ -391,6 +517,26 @@
     width: 36px;
     height: 36px;
     font-size: 1rem;
+  }
+
+  /* Cacher les boutons d'action sur petits écrans pour la page Bibliothèque */
+  .library-page .selection-button,
+  .library-page .delete-button,
+  .library-page .google-drive-button,
+  .library-page .reanalyze-button {
+    display: none !important;
+  }
+
+  /* Aligner le filtre à droite sur petits écrans */
+  .library-page .d-flex.justify-content-between.align-items-center {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+
+  .library-page .d-flex.align-items-center.gap-2 {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 
@@ -428,5 +574,25 @@
 
   .page-title.mb-0 {
     margin-bottom: 12px !important;
+  }
+
+  /* Cacher les boutons d'action sur très petits écrans pour la page Bibliothèque */
+  .library-page .selection-button,
+  .library-page .delete-button,
+  .library-page .google-drive-button,
+  .library-page .reanalyze-button {
+    display: none !important;
+  }
+
+  /* Aligner le filtre à droite sur très petits écrans */
+  .library-page .d-flex.justify-content-between.align-items-center {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+  }
+
+  .library-page .d-flex.align-items-center.gap-2 {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
