@@ -14,10 +14,40 @@ function ArtistGrid({ artists }: ArtistGridProps) {
   const [loadingArtistId, setLoadingArtistId] = useState<string | null>(null)
   const [allAlbums, setAllAlbums] = useState<Album[]>([])
   const [allTracks, setAllTracks] = useState<Track[]>([])
+  const [compilationsLoading, setCompilationsLoading] = useState(true)
+
+  // Précharger toutes les images en parallèle dès que les artistes sont disponibles
+  useEffect(() => {
+    if (artists.length === 0) return
+
+    // Précharger toutes les images en parallèle pour un chargement rapide
+    const preloadImages = () => {
+      artists.forEach((artist) => {
+        if (artist.coverArt) {
+          const imageUrl = buildImageUrl(artist.coverArt)
+          if (imageUrl) {
+            // Créer un objet Image pour forcer le préchargement dans le cache du navigateur
+            const img = new Image()
+            img.src = imageUrl
+            // Optionnel : précharger aussi via link rel="preload" pour les navigateurs modernes
+            const link = document.createElement('link')
+            link.rel = 'preload'
+            link.as = 'image'
+            link.href = imageUrl
+            document.head.appendChild(link)
+          }
+        }
+      })
+    }
+
+    // Précharger immédiatement
+    preloadImages()
+  }, [artists])
 
   // Charger tous les albums et pistes pour vérifier les compilations
   useEffect(() => {
     const loadData = async () => {
+      setCompilationsLoading(true)
       try {
         const [albums, tracks] = await Promise.all([
           getAlbums(),
@@ -27,6 +57,8 @@ function ArtistGrid({ artists }: ArtistGridProps) {
         setAllTracks(tracks)
       } catch (error) {
         console.error('Erreur lors du chargement des albums et pistes:', error)
+      } finally {
+        setCompilationsLoading(false)
       }
     }
     loadData()
@@ -43,10 +75,10 @@ function ArtistGrid({ artists }: ArtistGridProps) {
 
   // Calculer les compilations pour chaque artiste
   const artistCompilations = useMemo(() => {
-    const compilationsMap = new Map<string, string[]>()
+    const compilationsMap = new Map<string, number>()
     
     artists.forEach(artist => {
-      const compilationTitles: string[] = []
+      let compilationCount = 0
       
       // Trouver toutes les compilations où l'artiste apparaît
       allAlbums.forEach(album => {
@@ -57,14 +89,12 @@ function ArtistGrid({ artists }: ArtistGridProps) {
           )
           
           if (hasArtistTracks) {
-            compilationTitles.push(album.title)
+            compilationCount++
           }
         }
       })
       
-      if (compilationTitles.length > 0) {
-        compilationsMap.set(artist.id, compilationTitles)
-      }
+      compilationsMap.set(artist.id, compilationCount)
     })
     
     return compilationsMap
@@ -156,6 +186,8 @@ function ArtistGrid({ artists }: ArtistGridProps) {
                   src={builtImageUrl} 
                   alt={artist.name}
                   className="album-cover"
+                  loading="eager"
+                  decoding="async"
                   onLoad={() => {
                     console.log(`[ArtistGrid] ✓ Image chargée avec succès pour ${artist.name}`)
                   }}
@@ -213,11 +245,15 @@ function ArtistGrid({ artists }: ArtistGridProps) {
                   {artist.albumCount} {artist.albumCount === 1 ? 'album' : 'albums'}
                 </p>
               )}
-              {artistCompilations.has(artist.id) && (
-                <p className="album-year">
-                  {artistCompilations.get(artist.id)?.length} compilation{artistCompilations.get(artist.id)!.length > 1 ? 's' : ''}
-                </p>
-              )}
+              <p className="album-year">
+                {compilationsLoading ? (
+                  'Synchronisation...'
+                ) : (
+                  <>
+                    {artistCompilations.get(artist.id) || 0} compilation{(artistCompilations.get(artist.id) || 0) !== 1 ? 's' : ''}
+                  </>
+                )}
+              </p>
             </div>
           </div>
         )

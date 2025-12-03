@@ -9,37 +9,20 @@ function Artists() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    // Recharger les images depuis Google Drive à chaque accès à la page
-    reloadImagesFromGoogleDrive()
+    // Charger les artistes immédiatement
+    loadArtists(false)
     
-    // Charger les artistes après le rechargement des images (avec forceReload)
-    setTimeout(() => {
-      loadArtists(true) // Forcer le rechargement des images
-    }, 500) // Attendre 500ms pour que le cache Google Drive soit rechargé
-    
-    // Recharger les artistes plusieurs fois pour récupérer les images chargées depuis Google Drive
-    const refreshTimers = [
+    // Recharger les images depuis Google Drive en parallèle (ne bloque pas l'affichage)
+    reloadImagesFromGoogleDrive().then(() => {
+      // Une fois les images Google Drive rechargées, mettre à jour les artistes
       setTimeout(() => {
-        console.log('[Artists] Rechargement 1 (après 2s) pour récupérer les images Google Drive...')
-        loadArtists(true) // Forcer le rechargement
+        loadArtists(true) // Forcer le rechargement pour récupérer les nouvelles images
         setRefreshKey(prev => prev + 1)
-      }, 2000),
-      setTimeout(() => {
-        console.log('[Artists] Rechargement 2 (après 5s) pour récupérer les images Google Drive...')
-        loadArtists(true) // Forcer le rechargement
-        setRefreshKey(prev => prev + 1)
-      }, 5000),
-      setTimeout(() => {
-        console.log('[Artists] Rechargement 3 (après 8s) pour récupérer les images Google Drive...')
-        loadArtists(true) // Forcer le rechargement
-        setRefreshKey(prev => prev + 1)
-      }, 8000)
-    ]
-    
-    return () => refreshTimers.forEach(timer => clearTimeout(timer))
+      }, 1000) // Attendre 1s pour que le cache Google Drive soit rechargé
+    })
   }, [])
 
-  const reloadImagesFromGoogleDrive = async () => {
+  const reloadImagesFromGoogleDrive = async (): Promise<void> => {
     try {
       const ARTIST_IMAGES_FOLDER_ID = '1J8sjsrpahbYPIT3LGofGvPub9N_qjEGn' // ID du dossier Google Drive
       console.log('[Artists] Rechargement des images depuis Google Drive...')
