@@ -35,8 +35,9 @@ function Library() {
     }
     try {
       console.log('[LIBRARY] Chargement des albums...')
-      // getAlbums() utilise automatiquement le cache s'il est disponible
-      const loadedAlbums = await getAlbums()
+      // getAlbums() utilise automatiquement le cache s'il est disponible (comme getArtists)
+      // Cela permet un chargement instantané si le cache existe
+      const loadedAlbums = await getAlbums(true) // Utiliser le cache en priorité
       console.log('[LIBRARY] Albums chargés:', loadedAlbums.length)
       setAlbums(loadedAlbums)
       if (loadedAlbums.length === 0) {

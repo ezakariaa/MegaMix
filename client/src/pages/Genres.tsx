@@ -13,7 +13,9 @@ function Genres() {
 
   const loadGenres = async () => {
     try {
-      const loadedGenres = await getGenres()
+      // getGenres() utilise automatiquement le cache s'il est disponible (comme getArtists)
+      // Cela permet un chargement instantané si le cache existe
+      const loadedGenres = await getGenres(true) // Utiliser le cache en priorité
       setGenres(loadedGenres)
     } catch (error) {
       console.error('Erreur lors du chargement des genres:', error)

@@ -243,7 +243,10 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   
   try {
     const response = await axios.get<{ albums: Album[] }>(url, {
-      timeout: 30000, // Augmenté à 30 secondes pour Railway
+      timeout: 60000, // Augmenté à 60 secondes pour Railway (peut être lent)
+      headers: {
+        'Accept-Encoding': 'gzip, deflate, br', // Accepter la compression
+      },
     })
     const albums = response.data.albums
     console.log('[API] ✅ Réponse reçue avec succès:', albums.length, 'albums')
@@ -302,7 +305,9 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     } else {
       console.error('[API] Erreur lors de la récupération des albums:', error)
     }
-    throw error // Propager l'erreur pour que le composant puisse l'afficher
+    // Retourner un tableau vide au lieu de lancer l'erreur (comme getArtists)
+    // Cela permet à la page de s'afficher immédiatement avec le cache
+    return []
   }
 }
 
@@ -374,7 +379,7 @@ export async function getAlbumTracks(albumId: string): Promise<Track[]> {
   try {
     const response = await axios.get<{ tracks: Track[] }>(
       `${API_BASE_URL}/music/albums/${albumId}/tracks`,
-      { timeout: 10000 } // Augmenté à 10 secondes
+      { timeout: 60000 } // Augmenté à 60 secondes pour Railway
     )
     const tracks = response.data.tracks
     
@@ -404,7 +409,10 @@ export async function getAlbumTracks(albumId: string): Promise<Track[]> {
 export async function getTracks(): Promise<Track[]> {
   try {
     const response = await axios.get<{ tracks: Track[] }>(`${API_BASE_URL}/music/tracks`, {
-      timeout: 10000,
+      timeout: 60000, // Augmenté à 60 secondes pour Railway
+      headers: {
+        'Accept-Encoding': 'gzip, deflate, br',
+      },
     })
     const tracks = response.data.tracks
     
@@ -521,7 +529,10 @@ export async function getArtists(): Promise<Artist[]> {
   
   try {
     const response = await axios.get<{ artists: Artist[] }>(`${API_BASE_URL}/music/artists`, {
-      timeout: 10000,
+      timeout: 60000, // Augmenté à 60 secondes pour Railway
+      headers: {
+        'Accept-Encoding': 'gzip, deflate, br',
+      },
     })
     const artists = response.data.artists
     
@@ -592,26 +603,44 @@ export async function getArtistById(artistId: string): Promise<Artist | null> {
 /**
  * Récupère tous les genres
  */
-export async function getGenres(): Promise<Genre[]> {
+export async function getGenres(useCache: boolean = true): Promise<Genre[]> {
+  // Si le cache est activé, retourner immédiatement le cache s'il existe (chargement instantané)
+  if (useCache) {
+    const cached = getCached<Genre[]>('genres')
+    if (cached && cached.length > 0) {
+      console.log('[API] Genres chargés depuis le cache:', cached.length, 'genres')
+      // Rafraîchir en arrière-plan sans bloquer
+      refreshGenresInBackground().catch(() => {
+        // Ignorer les erreurs en arrière-plan
+      })
+      return cached
+    }
+  }
+  
   try {
     const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
-      timeout: 10000, // Augmenté à 10 secondes
+      timeout: 60000, // Augmenté à 60 secondes pour Railway
+      headers: {
+        'Accept-Encoding': 'gzip, deflate, br',
+      },
     })
     const genres = response.data.genres
     
     // Mettre en cache seulement si succès et non vide
-    if (genres.length > 0) {
+    if (useCache && genres.length > 0) {
       setCached('genres', genres)
     }
     
     return genres
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
-    const cached = getCached<Genre[]>('genres')
-    if (cached && cached.length > 0) {
-      console.warn('Utilisation du cache en raison d\'une erreur réseau')
-      refreshGenresInBackground()
-      return cached
+    if (useCache) {
+      const cached = getCached<Genre[]>('genres')
+      if (cached && cached.length > 0) {
+        console.warn('[API] Utilisation du cache en raison d\'une erreur réseau')
+        refreshGenresInBackground()
+        return cached
+      }
     }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {

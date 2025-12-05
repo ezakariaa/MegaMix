@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import compression from 'compression'
 import dotenv from 'dotenv'
 import musicRoutes from './routes/music'
 import { ensureUploadDirectory } from './utils/fileUtils'
@@ -8,6 +9,18 @@ dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000
+
+// Compression gzip pour réduire la taille des réponses (important pour Railway)
+app.use(compression({
+  level: 6, // Niveau de compression (1-9, 6 est un bon compromis)
+  filter: (req, res) => {
+    // Compresser toutes les réponses JSON et texte
+    if (req.headers['x-no-compression']) {
+      return false
+    }
+    return compression.filter(req, res)
+  }
+}))
 
 // Créer le dossier de téléchargement (async, mais on ne bloque pas le démarrage)
 ensureUploadDirectory().catch(err => {
