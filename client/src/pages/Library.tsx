@@ -282,29 +282,43 @@ function Library() {
       return
     }
 
+    const albumIds = Array.from(selectedAlbums)
+    
+    // Mettre à jour IMMÉDIATEMENT l'état local (optimistic update)
+    // Filtrer les albums supprimés de la liste actuelle
+    setAlbums(prevAlbums => prevAlbums.filter(album => !albumIds.includes(album.id)))
+    
+    // Désactiver le mode sélection immédiatement
+    setSelectionMode(false)
+    setSelectedAlbums(new Set())
+    
+    // Afficher le message de succès immédiatement
+    setMessage({
+      type: 'success',
+      text: `${albumIds.length} album(s) supprimé(s) avec succès`,
+    })
+    setTimeout(() => setMessage(null), 5000)
+
     try {
-      const albumIds = Array.from(selectedAlbums)
-      await deleteAlbums(albumIds)
+      // Supprimer sur le serveur et récupérer les albums restants
+      const remainingAlbums = await deleteAlbums(albumIds)
       
-      setMessage({
-        type: 'success',
-        text: `${albumIds.length} album(s) supprimé(s) avec succès`,
-      })
-
-      // Recharger les albums
-      await loadAlbums()
-      
-      // Désactiver le mode sélection et vider la sélection
-      setSelectionMode(false)
-      setSelectedAlbums(new Set())
-
-      // Cacher le message après 5 secondes
-      setTimeout(() => setMessage(null), 5000)
+      // Mettre à jour immédiatement avec les albums restants du serveur
+      if (remainingAlbums.length > 0) {
+        setAlbums(remainingAlbums)
+      } else {
+        // Si le serveur ne retourne pas les albums, recharger
+        await loadAlbums()
+      }
     } catch (error: any) {
+      // En cas d'erreur, recharger depuis le serveur pour récupérer l'état correct
+      console.error('Erreur lors de la suppression:', error)
       setMessage({
         type: 'error',
         text: error.message || 'Erreur lors de la suppression des albums',
       })
+      // Recharger pour récupérer l'état correct du serveur
+      await loadAlbums()
     }
   }
 

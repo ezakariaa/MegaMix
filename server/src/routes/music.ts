@@ -580,6 +580,7 @@ router.delete('/albums', async (req: Request, res: Response) => {
       message: `${albumsToDelete.length} album(s) supprimé(s) avec succès`,
       deletedAlbums: albumsToDelete.length,
       deletedTracks: tracksToDelete.length,
+      albums: albums, // Retourner les albums restants pour mise à jour immédiate du cache
     })
   } catch (error: any) {
     console.error('Erreur lors de la suppression des albums:', error)

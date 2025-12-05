@@ -717,9 +717,14 @@ export async function getGenreAlbums(genreId: string): Promise<Album[]> {
 /**
  * Supprime des albums de la bibliothèque
  */
-export async function deleteAlbums(albumIds: string[]): Promise<void> {
+export async function deleteAlbums(albumIds: string[]): Promise<Album[]> {
   try {
-    const response = await axios.delete(
+    const response = await axios.delete<{
+      success: boolean
+      message?: string
+      error?: string
+      albums?: Album[]
+    }>(
       `${API_BASE_URL}/music/albums`,
       {
         data: { albumIds },
@@ -730,14 +735,29 @@ export async function deleteAlbums(albumIds: string[]): Promise<void> {
       throw new Error(response.data.error || 'Erreur lors de la suppression des albums')
     }
     
-    // Invalider le cache après suppression
-    removeCached('albums')
+    // Invalider les caches
     removeCached('artists')
     removeCached('genres')
     // Invalider aussi les caches des pistes des albums supprimés
     albumIds.forEach(albumId => {
       removeCached(`album_tracks_${albumId}`)
     })
+    
+    // Mettre à jour le cache avec les albums restants si fournis par le serveur
+    const remainingAlbums = response.data.albums || []
+    if (remainingAlbums.length > 0) {
+      try {
+        setCached('albums', remainingAlbums)
+      } catch (cacheError) {
+        // Si le cache échoue, continuer sans cache
+        console.warn('[API] Impossible de mettre à jour le cache après suppression')
+      }
+    } else {
+      // Si pas d'albums retournés, invalider le cache
+      removeCached('albums')
+    }
+    
+    return remainingAlbums
   } catch (error: any) {
     console.error('Erreur lors de la suppression des albums:', error)
     throw new Error(error.response?.data?.error || error.message || 'Erreur lors de la suppression des albums')
