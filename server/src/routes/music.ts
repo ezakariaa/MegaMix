@@ -502,27 +502,37 @@ router.post('/scan-path', async (req: Request, res: Response) => {
  * Optimisée pour répondre rapidement comme /artists
  */
 router.get('/albums', async (req: Request, res: Response) => {
-  // Si les données ne sont pas chargées, les charger (comme /artists)
+  // Si les données ne sont pas chargées, essayer de les charger rapidement
   if (!dataLoaded) {
     console.log('[ALBUMS] Données pas encore chargées, chargement...')
     try {
-      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
+      // Timeout de 5 secondes maximum pour éviter les blocages
+      const loadPromise = loadAllData()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout chargement')), 5000)
+      )
+      
+      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await Promise.race([
+        loadPromise,
+        timeoutPromise
+      ]) as { albums: Album[]; tracks: Track[]; artists: Artist[] }
+      
       albums = loadedAlbums
       tracks = loadedTracks
       artists = loadedArtists
       dataLoaded = true
-      console.log(`[ALBUMS] Données chargées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+      console.log(`[ALBUMS] Données chargées: ${albums.length} album(s)`)
     } catch (error) {
-      console.error('[ALBUMS] Erreur lors du chargement:', error)
-      // Si erreur, continuer avec ce qui est en mémoire (même si vide)
-      // Ne pas bloquer la réponse
-      dataLoaded = true // Marquer comme chargé pour éviter de réessayer indéfiniment
+      console.error('[ALBUMS] Erreur ou timeout lors du chargement:', error)
+      // Si erreur ou timeout, retourner immédiatement ce qui est en mémoire (même si vide)
+      // Ne pas bloquer la réponse - comme /artists
+      dataLoaded = true
+      res.json({ albums })
+      return
     }
   }
   
-  // Retourner immédiatement les albums en mémoire (comme /artists)
-  // Cela garantit une réponse rapide même si le chargement n'est pas terminé
-  console.log(`[ALBUMS] Retour de ${albums.length} album(s)`)
+  // Retourner immédiatement les albums en mémoire
   res.json({ albums })
 })
 
@@ -789,20 +799,32 @@ function generateGenreId(genreName: string): string {
 
 /**
  * Route pour obtenir tous les genres
+ * Optimisée pour répondre rapidement comme /artists
  */
 router.get('/genres', async (req: Request, res: Response) => {
-  // Attendre que les données soient chargées si ce n'est pas encore fait
+  // Si les données ne sont pas chargées, essayer de les charger rapidement
   if (!dataLoaded) {
-    console.log('[GENRES] Données pas encore chargées, attente...')
+    console.log('[GENRES] Données pas encore chargées, chargement...')
     try {
-      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
+      // Timeout de 5 secondes maximum pour éviter les blocages
+      const loadPromise = loadAllData()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout chargement')), 5000)
+      )
+      
+      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await Promise.race([
+        loadPromise,
+        timeoutPromise
+      ]) as { albums: Album[]; tracks: Track[]; artists: Artist[] }
+      
       albums = loadedAlbums
       tracks = loadedTracks
       artists = loadedArtists
       dataLoaded = true
       console.log(`[GENRES] Données chargées: ${albums.length} album(s), ${tracks.length} piste(s)`)
     } catch (error) {
-      console.error('[GENRES] Erreur lors du chargement:', error)
+      console.error('[GENRES] Erreur ou timeout lors du chargement:', error)
+      // Si erreur ou timeout, retourner immédiatement un tableau vide (comme /artists)
       return res.json({ genres: [] })
     }
   }
