@@ -4,7 +4,7 @@
  */
 
 const CACHE_PREFIX = 'muzak_cache_'
-const CACHE_DURATION = 2 * 60 * 1000 // 2 minutes (réduit pour éviter les données obsolètes)
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes (augmenté pour améliorer les performances)
 
 interface CacheEntry<T> {
   data: T

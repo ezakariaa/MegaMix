@@ -14,9 +14,10 @@ function GenreGrid({ genres }: GenreGridProps) {
   const [loadingGenreId, setLoadingGenreId] = useState<string | null>(null)
   const [allAlbums, setAllAlbums] = useState<Album[]>([])
 
-  // Charger tous les albums pour trouver les couvertures
+  // Charger tous les albums pour trouver les couvertures (utilise le cache en priorité)
   useEffect(() => {
-    getAlbums().then(setAllAlbums).catch(console.error)
+    // Utiliser le cache pour un chargement rapide
+    getAlbums(true).then(setAllAlbums).catch(console.error)
   }, [])
 
   // Créer un map pour trouver rapidement la couverture du premier album de chaque genre

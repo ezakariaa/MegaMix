@@ -218,6 +218,23 @@ export async function scanMusicFiles(
 /**
  * Récupère tous les albums avec cache
  */
+/**
+ * Crée une version légère d'un album (sans données volumineuses)
+ */
+function createLightweightAlbum(album: Album): Album {
+  return {
+    id: album.id,
+    title: album.title,
+    artist: album.artist,
+    artistId: album.artistId,
+    year: album.year,
+    genre: album.genre,
+    trackCount: album.trackCount,
+    coverArt: album.coverArt, // Garder l'URL, pas l'image elle-même
+    cdCount: album.cdCount,
+  }
+}
+
 export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   // Si le cache est activé, retourner immédiatement le cache s'il existe (chargement instantané)
   if (useCache) {
@@ -250,11 +267,30 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     console.log('[API] ✅ Réponse reçue avec succès:', albums.length, 'albums')
     console.log('[API] Status:', response.status, response.statusText)
     
-    // Ne pas mettre en cache les albums complets (trop volumineux pour localStorage)
-    // Les albums seront toujours récupérés depuis le serveur pour éviter QuotaExceededError
-    // if (useCache && albums.length > 0) {
-    //   setCached('albums', albums)
-    // }
+    // Mettre en cache les albums (avec gestion d'erreur silencieuse)
+    // Si le cache échoue (quota dépassé), on continue sans cache mais l'app fonctionne
+    if (useCache && albums.length > 0) {
+      try {
+        setCached('albums', albums)
+        console.log('[API] Cache mis à jour avec', albums.length, 'albums')
+      } catch (cacheError: any) {
+        // Si le cache échoue (quota dépassé), nettoyer et réessayer avec version légère
+        if (cacheError instanceof DOMException && (cacheError.code === 22 || cacheError.name === 'QuotaExceededError')) {
+          console.warn('[API] Quota localStorage dépassé, nettoyage du cache...')
+          try {
+            // Nettoyer les anciens caches
+            removeCached('tracks') // Les tracks sont souvent volumineux
+            // Réessayer avec version légère
+            const lightweightAlbums = albums.map(createLightweightAlbum)
+            setCached('albums', lightweightAlbums)
+            console.log('[API] Cache mis à jour avec version légère:', lightweightAlbums.length, 'albums')
+          } catch (retryError) {
+            // Si ça échoue encore, continuer sans cache (l'app fonctionne quand même)
+            console.warn('[API] Impossible de mettre en cache, continuation sans cache')
+          }
+        }
+      }
+    }
     
     return albums
   } catch (error: any) {
