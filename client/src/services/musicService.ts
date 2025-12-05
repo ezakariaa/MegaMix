@@ -216,12 +216,19 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   // Si le cache est activé, retourner immédiatement le cache s'il existe (chargement instantané)
   if (useCache) {
     const cached = getCached<Album[]>('albums')
-      if (cached && cached.length > 0) {
+    if (cached && cached.length > 0) {
       // Rafraîchir en arrière-plan sans bloquer
       refreshAlbumsInBackground().catch(() => {
         // Ignorer les erreurs en arrière-plan
       })
       return cached
+    }
+    // Si cache expiré mais existe, l'utiliser quand même pour affichage immédiat
+    const expiredCache = getCachedEvenExpired<Album[]>('albums')
+    if (expiredCache && expiredCache.length > 0) {
+      // Rafraîchir en arrière-plan
+      refreshAlbumsInBackground().catch(() => {})
+      return expiredCache
     }
   }
   
@@ -229,7 +236,7 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   
   try {
     const response = await axios.get<{ albums: Album[] }>(url, {
-      timeout: 120000, // 120 secondes (2 minutes) pour Railway qui peut être très lent au démarrage
+      timeout: 5000, // Timeout réduit à 5 secondes - réponse serveur immédiate attendue
       // Note: Le navigateur gère automatiquement Accept-Encoding, pas besoin de le définir
     })
     const albums = response.data.albums
@@ -618,7 +625,7 @@ export async function getGenres(useCache: boolean = true): Promise<Genre[]> {
   
   try {
     const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
-      timeout: 60000, // Augmenté à 60 secondes pour Railway
+      timeout: 5000, // Timeout réduit à 5 secondes - réponse serveur immédiate attendue
       // Note: Le navigateur gère automatiquement Accept-Encoding
     })
     const genres = response.data.genres

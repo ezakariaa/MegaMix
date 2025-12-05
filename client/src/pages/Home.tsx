@@ -225,41 +225,54 @@ function Home() {
   return (
     <DragDropZone onFilesDropped={handleFilesDropped}>
       <Container fluid className="home-page">
+      {/* Afficher la page même si vide - l'utilisateur voit la structure immédiatement */}
       {/* Première section : Derniers albums ajoutés */}
-      {recentlyAddedAlbums.length > 0 && (
-        <Row className="mb-4">
-          <Col>
-            <h2 className="section-title">Derniers albums ajoutés</h2>
+      <Row className="mb-4">
+        <Col>
+          <h2 className="section-title">Derniers albums ajoutés</h2>
+          {recentlyAddedAlbums.length > 0 ? (
             <div className="scrollable-albums" ref={recentlyAddedRef}>
               <AlbumGrid albums={recentlyAddedAlbums} />
             </div>
-          </Col>
-        </Row>
-      )}
+          ) : (
+            <div className="text-center text-muted py-4">
+              <p>Aucun album disponible</p>
+            </div>
+          )}
+        </Col>
+      </Row>
 
       {/* Deuxième section : Albums aléatoires */}
-      {randomAlbums.length > 0 && (
-        <Row className="mb-4">
-          <Col>
-            <h2 className="section-title">Albums aléatoires</h2>
+      <Row className="mb-4">
+        <Col>
+          <h2 className="section-title">Albums aléatoires</h2>
+          {randomAlbums.length > 0 ? (
             <div className="scrollable-albums" ref={randomAlbumsRef}>
               <AlbumGrid albums={randomAlbums} />
             </div>
-          </Col>
-        </Row>
-      )}
+          ) : (
+            <div className="text-center text-muted py-4">
+              <p>Aucun album disponible</p>
+            </div>
+          )}
+        </Col>
+      </Row>
 
       {/* Troisième section : Albums écoutés récemment */}
-      {recentlyPlayedAlbums.length > 0 && (
-        <Row className="mb-5">
-          <Col>
-            <h2 className="section-title">Albums écoutés récemment</h2>
+      <Row className="mb-5">
+        <Col>
+          <h2 className="section-title">Albums écoutés récemment</h2>
+          {recentlyPlayedAlbums.length > 0 ? (
             <div className="scrollable-albums" ref={recentlyPlayedRef}>
               <AlbumGrid albums={recentlyPlayedAlbums} />
             </div>
-          </Col>
-        </Row>
-      )}
+          ) : (
+            <div className="text-center text-muted py-4">
+              <p>Aucun album disponible</p>
+            </div>
+          )}
+        </Col>
+      </Row>
     </Container>
     </DragDropZone>
   )

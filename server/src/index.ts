@@ -138,7 +138,6 @@ const HOST = process.env.HOST || '0.0.0.0'
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Serveur MuZak démarré sur le port ${PORT}`)
   console.log(`📍 URL: http://${HOST}:${PORT}`)
-  
-  // Images d'artistes récupérées automatiquement via les APIs fanart (iTunes, Last.fm, Fanart.tv, TheAudioDB)
   console.log(`ℹ️  Récupération automatique des images d'artistes via les APIs fanart`)
+  console.log(`⚡ Les routes répondent immédiatement, données chargées en arrière-plan si nécessaire`)
 })
