@@ -46,15 +46,18 @@ const upload = multer({
 let albums: Album[] = []
 let tracks: Track[] = []
 let artists: Artist[] = []
+let dataLoaded = false // Flag pour indiquer si les données sont chargées
 
 // Charger les données au démarrage
 loadAllData().then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
   albums = loadedAlbums
   tracks = loadedTracks
   artists = loadedArtists
-  console.log(`[INIT] Données chargées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+  dataLoaded = true
+  console.log(`[INIT] ✅ Données chargées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
 }).catch((error) => {
-  console.error('[INIT] Erreur lors du chargement des données:', error)
+  console.error('[INIT] ❌ Erreur lors du chargement des données:', error)
+  dataLoaded = true // Marquer comme chargé même en cas d'erreur pour éviter de bloquer indéfiniment
 })
 
 /**
@@ -498,6 +501,23 @@ router.post('/scan-path', async (req: Request, res: Response) => {
  * Route pour obtenir tous les albums
  */
 router.get('/albums', (req: Request, res: Response) => {
+  // Attendre que les données soient chargées si ce n'est pas encore fait
+  if (!dataLoaded) {
+    console.log('[ALBUMS] Données pas encore chargées, attente...')
+    loadAllData().then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
+      albums = loadedAlbums
+      tracks = loadedTracks
+      artists = loadedArtists
+      dataLoaded = true
+      console.log(`[ALBUMS] Données chargées: ${albums.length} album(s)`)
+      res.json({ albums })
+    }).catch((error) => {
+      console.error('[ALBUMS] Erreur lors du chargement:', error)
+      res.json({ albums: [] })
+    })
+    return
+  }
+  
   // Retourner les albums en mémoire (chargés au démarrage et mis à jour après chaque modification)
   // Ne pas recharger depuis le fichier à chaque requête pour éviter les problèmes de synchronisation
   res.json({ albums })
@@ -577,6 +597,22 @@ router.get('/tracks', (req: Request, res: Response) => {
  * Route pour obtenir tous les artistes
  */
 router.get('/artists', async (req: Request, res: Response) => {
+  // Attendre que les données soient chargées si ce n'est pas encore fait
+  if (!dataLoaded) {
+    console.log('[ARTISTS] Données pas encore chargées, attente...')
+    try {
+      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
+      albums = loadedAlbums
+      tracks = loadedTracks
+      artists = loadedArtists
+      dataLoaded = true
+      console.log(`[ARTISTS] Données chargées: ${artists.length} artiste(s)`)
+    } catch (error) {
+      console.error('[ARTISTS] Erreur lors du chargement:', error)
+      return res.json({ artists: [] })
+    }
+  }
+  
   // Calculer le nombre d'albums par artiste et INCLURE les images en cache
   const artistsWithAlbumCount = artists.map(artist => {
     const albumCount = albums.filter(album => album.artistId === artist.id).length
@@ -751,7 +787,23 @@ function generateGenreId(genreName: string): string {
 /**
  * Route pour obtenir tous les genres
  */
-router.get('/genres', (req: Request, res: Response) => {
+router.get('/genres', async (req: Request, res: Response) => {
+  // Attendre que les données soient chargées si ce n'est pas encore fait
+  if (!dataLoaded) {
+    console.log('[GENRES] Données pas encore chargées, attente...')
+    try {
+      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
+      albums = loadedAlbums
+      tracks = loadedTracks
+      artists = loadedArtists
+      dataLoaded = true
+      console.log(`[GENRES] Données chargées: ${albums.length} album(s), ${tracks.length} piste(s)`)
+    } catch (error) {
+      console.error('[GENRES] Erreur lors du chargement:', error)
+      return res.json({ genres: [] })
+    }
+  }
+  
   // Extraire les genres uniques depuis les albums et pistes
   const genresMap = new Map<string, { id: string; name: string; trackCount: number; albumIds: Set<string> }>()
   
@@ -2183,11 +2235,15 @@ router.post('/import-data', async (req: Request, res: Response) => {
 
     console.log(`[IMPORT] Import de ${importedAlbums.length} album(s), ${importedTracks.length} piste(s), ${importedArtists.length} artiste(s)`)
 
-    // REMPLACER complètement les données (pas de fusion) pour synchroniser correctement les suppressions
+    // REMPLACER complètement les données pour synchroniser correctement les suppressions
+    // Les données importées remplacent complètement les données existantes
     // Cela permet de synchroniser les suppressions d'albums depuis le local vers Railway
     albums = importedAlbums
     tracks = importedTracks
     artists = importedArtists
+    dataLoaded = true // Marquer les données comme chargées
+    
+    console.log(`[IMPORT] Données remplacées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
 
     // Sauvegarder les données
     await saveAllData(albums, tracks, artists)

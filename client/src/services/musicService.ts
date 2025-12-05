@@ -19,14 +19,24 @@ console.log('[API] VITE_API_URL:', import.meta.env.VITE_API_URL || 'non défini 
 console.log('[API] URL de base:', import.meta.env.VITE_API_URL || 'http://localhost:5000')
 console.log('[API] URL de l\'API finale:', API_BASE_URL)
 console.log('[API] Environnement:', import.meta.env.MODE || 'development')
+console.log('[API] Hostname actuel:', typeof window !== 'undefined' ? window.location.hostname : 'N/A')
 
 // Avertissement si on est sur GitHub Pages et que l'API pointe vers localhost
 if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+  console.log('[API] 🌐 Détection: GitHub Pages détecté')
   if (API_BASE_URL.includes('localhost') || !import.meta.env.VITE_API_URL) {
-    console.warn('⚠️ [API] ATTENTION: VITE_API_URL n\'est pas configuré ou pointe vers localhost!')
-    console.warn('⚠️ [API] L\'application ne pourra pas se connecter au backend sur GitHub Pages.')
-    console.warn('⚠️ [API] Configurez le secret VITE_API_URL dans GitHub Settings > Secrets > Actions')
-    console.warn('⚠️ [API] Voir GITHUB_PAGES_SETUP.md pour plus d\'informations')
+    console.error('❌ [API] ERREUR CRITIQUE: VITE_API_URL n\'est pas configuré ou pointe vers localhost!')
+    console.error('❌ [API] L\'application ne pourra PAS se connecter au backend sur GitHub Pages.')
+    console.error('❌ [API] SOLUTION: Configurez le secret VITE_API_URL dans GitHub Settings > Secrets > Actions')
+    console.error('❌ [API] URL attendue: https://muzak-server-production.up.railway.app (sans /api)')
+    console.error('❌ [API] Voir GITHUB_PAGES_SETUP.md pour plus d\'informations')
+    
+    // Afficher une alerte visible dans la console
+    console.error('%c⚠️ CONFIGURATION MANQUANTE ⚠️', 'color: red; font-size: 20px; font-weight: bold;')
+    console.error('%cVITE_API_URL doit être configuré dans GitHub Secrets pour que l\'application fonctionne!', 'color: red; font-size: 14px;')
+  } else {
+    console.log('✅ [API] VITE_API_URL est configuré:', import.meta.env.VITE_API_URL)
+    console.log('✅ [API] L\'application devrait pouvoir se connecter au backend')
   }
 }
 
@@ -224,13 +234,20 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   
   const url = `${API_BASE_URL}/music/albums`
   console.log('[API] Requête GET vers:', url)
+  console.log('[API] Configuration actuelle:', {
+    API_BASE_URL,
+    VITE_API_URL: import.meta.env.VITE_API_URL,
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+    origin: typeof window !== 'undefined' ? window.location.origin : 'N/A'
+  })
   
   try {
     const response = await axios.get<{ albums: Album[] }>(url, {
       timeout: 30000, // Augmenté à 30 secondes pour Railway
     })
     const albums = response.data.albums
-    console.log('[API] Réponse reçue:', albums.length, 'albums')
+    console.log('[API] ✅ Réponse reçue avec succès:', albums.length, 'albums')
+    console.log('[API] Status:', response.status, response.statusText)
     
     // Mettre en cache seulement si succès
     if (useCache && albums.length > 0) {
@@ -239,13 +256,34 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     
     return albums
   } catch (error: any) {
-    console.error('[API] Erreur lors de la récupération des albums:', {
+    const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io')
+    const isCorsError = error.message?.includes('CORS') || error.code === 'ERR_NETWORK' || 
+                       (error.response?.status === 0 && isGitHubPages)
+    
+    console.error('[API] ❌ Erreur lors de la récupération des albums:', {
       message: error.message,
       code: error.code,
       response: error.response?.data,
       status: error.response?.status,
-      url: error.config?.url
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      isGitHubPages,
+      isCorsError,
+      API_BASE_URL,
+      VITE_API_URL: import.meta.env.VITE_API_URL
     })
+    
+    // Afficher des instructions spécifiques selon le type d'erreur
+    if (isCorsError && isGitHubPages) {
+      console.error('%c🚫 ERREUR CORS DÉTECTÉE', 'color: red; font-size: 16px; font-weight: bold;')
+      console.error('%cLe backend Railway doit autoriser les requêtes depuis GitHub Pages.', 'color: red; font-size: 14px;')
+      console.error('%cSolution: Configurez ALLOWED_ORIGINS sur Railway avec votre URL GitHub Pages', 'color: orange; font-size: 14px;')
+      console.error('%cExemple: ALLOWED_ORIGINS=https://votre-username.github.io', 'color: orange; font-size: 14px;')
+    } else if (isGitHubPages && (!import.meta.env.VITE_API_URL || API_BASE_URL.includes('localhost'))) {
+      console.error('%c🚫 VITE_API_URL NON CONFIGURÉ', 'color: red; font-size: 16px; font-weight: bold;')
+      console.error('%cLe secret VITE_API_URL n\'est pas configuré dans GitHub Actions.', 'color: red; font-size: 14px;')
+      console.error('%cSolution: Allez dans GitHub Settings > Secrets > Actions et ajoutez VITE_API_URL', 'color: orange; font-size: 14px;')
+    }
     
     // Si erreur réseau, essayer de retourner le cache même expiré
     if (useCache) {

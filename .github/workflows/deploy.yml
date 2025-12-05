@@ -45,19 +45,33 @@ jobs:
       - name: Build
         run: |
           cd client
+          echo "=========================================="
+          echo "🔍 Vérification de la configuration API"
+          echo "=========================================="
           if [ -z "$VITE_API_URL" ] || [ "$VITE_API_URL" = "http://localhost:5000" ]; then
-            echo "⚠️  ATTENTION: VITE_API_URL n'est pas configuré dans les secrets GitHub!"
-            echo "⚠️  L'application ne pourra pas se connecter au backend sur GitHub Pages."
-            echo "⚠️  Configurez le secret VITE_API_URL dans Settings > Secrets and variables > Actions"
-            echo "⚠️  Exemple: https://votre-backend.up.railway.app"
+            echo ""
+            echo "❌ ERREUR CRITIQUE: VITE_API_URL n'est pas configuré!"
+            echo "❌ L'application ne pourra PAS se connecter au backend sur GitHub Pages."
+            echo ""
+            echo "📋 SOLUTION:"
+            echo "   1. Allez dans GitHub → Settings → Secrets and variables → Actions"
+            echo "   2. Créez un secret nommé: VITE_API_URL"
+            echo "   3. Valeur: https://muzak-server-production.up.railway.app"
+            echo "   4. Redéployez l'application après avoir ajouté le secret"
+            echo ""
+            echo "⚠️  Le build va continuer mais l'application ne fonctionnera pas sur GitHub Pages!"
+            echo ""
           else
             echo "✅ VITE_API_URL configuré: $VITE_API_URL"
+            echo "✅ L'application devrait pouvoir se connecter au backend"
           fi
+          echo "=========================================="
+          echo ""
           npm run build
         env:
           # Utilisez votre URL de backend déployé ici
           # Configurez VITE_API_URL dans Settings > Secrets and variables > Actions
-          # Exemple: https://votre-backend.up.railway.app (sans /api à la fin)
+          # Exemple: https://muzak-server-production.up.railway.app (sans /api à la fin)
           VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:5000' }}
 
       - name: Setup Pages
