@@ -29,7 +29,8 @@ export async function ensureDataDirectory(): Promise<void> {
 export async function saveAlbums(albums: Album[]): Promise<void> {
   try {
     await ensureDataDirectory()
-    await fs.writeFile(ALBUMS_FILE, JSON.stringify(albums, null, 2), 'utf-8')
+    // Utiliser JSON compact (sans indentation) pour réduire la taille et accélérer le parsing
+    await fs.writeFile(ALBUMS_FILE, JSON.stringify(albums), 'utf-8')
     console.log(`[PERSISTENCE] ${albums.length} album(s) sauvegardé(s)`)
   } catch (error) {
     console.error('[PERSISTENCE] Erreur lors de la sauvegarde des albums:', error)
@@ -41,13 +42,18 @@ export async function saveAlbums(albums: Album[]): Promise<void> {
  */
 export async function loadAlbums(): Promise<Album[]> {
   try {
-    const data = await fs.readFile(ALBUMS_FILE, 'utf-8')
+    // Utiliser readFile avec buffer pour de meilleures performances sur gros fichiers (8+ MB)
+    const buffer = await fs.readFile(ALBUMS_FILE)
+    const data = buffer.toString('utf-8')
+    
     // Vérifier si le fichier est vide ou ne contient que des espaces
     const trimmedData = data.trim()
     if (!trimmedData || trimmedData === '') {
       console.log('[PERSISTENCE] Fichier d\'albums vide, retour d\'un tableau vide (NE PAS ÉCRASER)')
       return []
     }
+    
+    // Parser JSON de manière optimisée
     const albums = JSON.parse(trimmedData) as Album[]
     if (!Array.isArray(albums)) {
       console.warn('[PERSISTENCE] Format invalide dans albums.json')
@@ -77,7 +83,8 @@ export async function loadAlbums(): Promise<Album[]> {
 export async function saveTracks(tracks: Track[]): Promise<void> {
   try {
     await ensureDataDirectory()
-    await fs.writeFile(TRACKS_FILE, JSON.stringify(tracks, null, 2), 'utf-8')
+    // Utiliser JSON compact (sans indentation) pour réduire la taille et accélérer le parsing
+    await fs.writeFile(TRACKS_FILE, JSON.stringify(tracks), 'utf-8')
     console.log(`[PERSISTENCE] ${tracks.length} piste(s) sauvegardée(s)`)
   } catch (error) {
     console.error('[PERSISTENCE] Erreur lors de la sauvegarde des pistes:', error)
@@ -89,7 +96,10 @@ export async function saveTracks(tracks: Track[]): Promise<void> {
  */
 export async function loadTracks(): Promise<Track[]> {
   try {
-    const data = await fs.readFile(TRACKS_FILE, 'utf-8')
+    // Utiliser readFile avec buffer pour de meilleures performances
+    const buffer = await fs.readFile(TRACKS_FILE)
+    const data = buffer.toString('utf-8')
+    
     // Vérifier si le fichier est vide ou ne contient que des espaces
     const trimmedData = data.trim()
     if (!trimmedData || trimmedData === '') {
@@ -125,7 +135,8 @@ export async function loadTracks(): Promise<Track[]> {
 export async function saveArtists(artists: Artist[]): Promise<void> {
   try {
     await ensureDataDirectory()
-    await fs.writeFile(ARTISTS_FILE, JSON.stringify(artists, null, 2), 'utf-8')
+    // Utiliser JSON compact (sans indentation) pour réduire la taille et accélérer le parsing
+    await fs.writeFile(ARTISTS_FILE, JSON.stringify(artists), 'utf-8')
     console.log(`[PERSISTENCE] ${artists.length} artiste(s) sauvegardé(s)`)
   } catch (error) {
     console.error('[PERSISTENCE] Erreur lors de la sauvegarde des artistes:', error)
@@ -137,7 +148,10 @@ export async function saveArtists(artists: Artist[]): Promise<void> {
  */
 export async function loadArtists(): Promise<Artist[]> {
   try {
-    const data = await fs.readFile(ARTISTS_FILE, 'utf-8')
+    // Utiliser readFile avec buffer pour de meilleures performances
+    const buffer = await fs.readFile(ARTISTS_FILE)
+    const data = buffer.toString('utf-8')
+    
     // Vérifier si le fichier est vide ou ne contient que des espaces
     const trimmedData = data.trim()
     if (!trimmedData || trimmedData === '') {

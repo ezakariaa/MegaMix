@@ -5,7 +5,7 @@ import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import { scanMusicFolder } from '../services/musicScanner'
 import { parseFile } from 'music-metadata'
-import { Album, Track, Artist } from '../types'
+import { Album, Track, Artist, Genre } from '../types'
 import { loadAllData, saveAllData, saveAlbums, saveTracks, saveArtists } from '../utils/dataPersistence'
 import { searchArtistImage, searchLastFm } from '../utils/artistImageSearch'
 import { getArtistBiography } from '../utils/artistBiography'
@@ -47,17 +47,26 @@ let albums: Album[] = []
 let tracks: Track[] = []
 let artists: Artist[] = []
 let dataLoaded = false // Flag pour indiquer si les données sont chargées
+let genresCache: Genre[] | null = null // Cache pour les genres calculés
+let genresCacheTimestamp = 0 // Timestamp du cache
+const GENRES_CACHE_DURATION = 60000 // Cache valide pendant 1 minute
 
-// Charger les données au démarrage
-loadAllData().then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
-  albums = loadedAlbums
-  tracks = loadedTracks
-  artists = loadedArtists
-  dataLoaded = true
-  console.log(`[INIT] ✅ Données chargées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
-}).catch((error) => {
-  console.error('[INIT] ❌ Erreur lors du chargement des données:', error)
-  dataLoaded = true // Marquer comme chargé même en cas d'erreur pour éviter de bloquer indéfiniment
+// Charger les données au démarrage de manière optimisée
+// Utiliser setImmediate pour ne pas bloquer le démarrage du serveur
+setImmediate(async () => {
+  try {
+    const startTime = Date.now()
+    const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
+    albums = loadedAlbums
+    tracks = loadedTracks
+    artists = loadedArtists
+    dataLoaded = true
+    const loadTime = Date.now() - startTime
+    console.log(`[INIT] ✅ Données chargées en ${loadTime}ms: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+  } catch (error) {
+    console.error('[INIT] ❌ Erreur lors du chargement des données:', error)
+    dataLoaded = true // Marquer comme chargé même en cas d'erreur pour éviter de bloquer indéfiniment
+  }
 })
 
 /**
@@ -621,12 +630,18 @@ router.get('/artists', (req: Request, res: Response) => {
     return
   }
   
+  // Calculer le nombre d'albums par artiste de manière optimisée (O(n) au lieu de O(n*m))
+  // Créer un Map pour éviter de filtrer pour chaque artiste
+  const albumCountByArtist = new Map<string, number>()
+  albums.forEach(album => {
+    albumCountByArtist.set(album.artistId, (albumCountByArtist.get(album.artistId) || 0) + 1)
+  })
+  
   // Calculer le nombre d'albums par artiste et INCLURE les images en cache
   const artistsWithAlbumCount = artists.map(artist => {
-    const albumCount = albums.filter(album => album.artistId === artist.id).length
     return {
       ...artist,
-      albumCount,
+      albumCount: albumCountByArtist.get(artist.id) || 0,
       coverArt: artist.coverArt || undefined,
     }
   })
@@ -2276,6 +2291,7 @@ router.post('/import-data', async (req: Request, res: Response) => {
     tracks = importedTracks
     artists = importedArtists
     dataLoaded = true // Marquer les données comme chargées
+    genresCache = null // Invalider le cache des genres
     
     console.log(`[IMPORT] ✅ Données remplacées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
 
