@@ -2235,6 +2235,26 @@ router.post('/import-data', async (req: Request, res: Response) => {
 
     console.log(`[IMPORT] Import de ${importedAlbums.length} album(s), ${importedTracks.length} piste(s), ${importedArtists.length} artiste(s)`)
 
+    // ⚠️ PROTECTION : Ne JAMAIS supprimer les données existantes si les données importées sont vides
+    // Si les données importées sont vides, garder les données existantes
+    const hasImportedData = importedAlbums.length > 0 || importedTracks.length > 0 || importedArtists.length > 0
+    const hasExistingData = albums.length > 0 || tracks.length > 0 || artists.length > 0
+    
+    if (!hasImportedData && hasExistingData) {
+      console.warn('[IMPORT] ⚠️ ATTENTION: Tentative d\'import de données vides alors que des données existent déjà!')
+      console.warn('[IMPORT] ⚠️ Les données existantes sont PRÉSERVÉES pour éviter la perte de données.')
+      console.warn(`[IMPORT] ⚠️ Données existantes: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+      return res.status(400).json({ 
+        error: 'Impossible d\'importer des données vides. Les données existantes sont préservées pour éviter la perte de données.',
+        existingCounts: {
+          albums: albums.length,
+          tracks: tracks.length,
+          artists: artists.length
+        }
+      })
+    }
+
+    // Si les données importées sont valides, remplacer les données existantes
     // REMPLACER complètement les données pour synchroniser correctement les suppressions
     // Les données importées remplacent complètement les données existantes
     // Cela permet de synchroniser les suppressions d'albums depuis le local vers Railway
@@ -2243,7 +2263,7 @@ router.post('/import-data', async (req: Request, res: Response) => {
     artists = importedArtists
     dataLoaded = true // Marquer les données comme chargées
     
-    console.log(`[IMPORT] Données remplacées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+    console.log(`[IMPORT] ✅ Données remplacées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
 
     // Sauvegarder les données
     await saveAllData(albums, tracks, artists)
