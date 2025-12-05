@@ -24,6 +24,7 @@ interface PlayerContextType {
   playAlbum: (albumId: string, tracks: Track[], startIndex?: number) => void
   togglePlay: () => void
   setCurrentTime: (time: number) => void
+  seek: (time: number) => void
   setVolume: (volume: number) => void
   setShuffled: (shuffled: boolean) => void
   setRepeatMode: (mode: 'off' | 'all' | 'one') => void
@@ -355,6 +356,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     playTrack(queue[prevIndex])
   }
 
+  // Fonction pour chercher (seek) une position dans la piste
+  const seek = useCallback((time: number) => {
+    if (!audioRef.current || !currentTrack) return
+    
+    // S'assurer que le temps est dans les limites valides
+    const clampedTime = Math.max(0, Math.min(time, currentTrack.duration))
+    
+    // Mettre à jour l'élément audio
+    audioRef.current.currentTime = clampedTime
+    // Mettre à jour l'état
+    setCurrentTime(clampedTime)
+  }, [currentTrack])
+
   return (
     <PlayerContext.Provider
       value={{
@@ -368,6 +382,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         playAlbum,
         togglePlay,
         setCurrentTime,
+        seek,
         setVolume,
         setShuffled: setIsShuffled,
         setRepeatMode,

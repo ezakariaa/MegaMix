@@ -305,6 +305,29 @@
   color: var(--spotify-green);
 }
 
+/* Groupes de disques */
+.tracklist-disc-group {
+  margin-bottom: 24px;
+}
+
+.tracklist-disc-group:last-child {
+  margin-bottom: 0;
+}
+
+.tracklist-disc-header {
+  padding: 16px 8px 8px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+}
+
+.tracklist-disc-title {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  font-family: 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .album-detail-page {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../contexts/PlayerContext'
 import './PlayerFooter.css'
@@ -17,12 +17,52 @@ function PlayerFooter() {
     setRepeatMode,
     nextTrack,
     previousTrack,
+    seek,
   } = usePlayer()
   
   const navigate = useNavigate()
   const [isLiked, setIsLiked] = useState(false)
   const [isVolumeHovered, setIsVolumeHovered] = useState(false)
   const previousVolumeRef = useRef<number>(50) // Volume par défaut si aucun n'était sauvegardé
+  const progressBarRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Calculer la position de la souris sur la barre de progression
+  const getProgressFromEvent = useCallback((e: React.MouseEvent<HTMLDivElement> | MouseEvent): number => {
+    if (!progressBarRef.current || !currentTrack) return 0
+    
+    const rect = progressBarRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const percentage = Math.max(0, Math.min(1, x / rect.width))
+    return percentage * currentTrack.duration
+  }, [currentTrack])
+
+  // Gérer le mouvement pendant le glisser
+  const handleProgressMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !currentTrack || !progressBarRef.current) return
+    const rect = progressBarRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const percentage = Math.max(0, Math.min(1, x / rect.width))
+    const newTime = percentage * currentTrack.duration
+    if (seek) seek(newTime)
+  }, [isDragging, currentTrack, seek])
+
+  // Gérer la fin du glisser
+  const handleProgressMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Ajouter les écouteurs d'événements globaux pour le glisser
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleProgressMouseMove)
+      window.addEventListener('mouseup', handleProgressMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleProgressMouseMove)
+        window.removeEventListener('mouseup', handleProgressMouseUp)
+      }
+    }
+  }, [isDragging, handleProgressMouseMove, handleProgressMouseUp])
 
   const handleCoverClick = () => {
     if (currentTrack?.albumId) {
@@ -40,6 +80,21 @@ function PlayerFooter() {
       setVolume(previousVolumeRef.current > 0 ? previousVolumeRef.current : 50)
     }
   }
+
+  // Gérer le clic sur la barre de progression
+  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!currentTrack || isDragging || !seek) return
+    const newTime = getProgressFromEvent(e)
+    seek(newTime)
+  }, [currentTrack, isDragging, seek, getProgressFromEvent])
+
+  // Gérer le début du glisser
+  const handleProgressMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!currentTrack || !seek) return
+    setIsDragging(true)
+    const newTime = getProgressFromEvent(e)
+    seek(newTime)
+  }, [currentTrack, seek, getProgressFromEvent])
 
   // Si aucune piste n'est sélectionnée, afficher un état par défaut
   if (!currentTrack) {
@@ -214,12 +269,18 @@ function PlayerFooter() {
           </div>
           <div className="player-progress">
             <span className="player-time-current">{formatTime(currentTime)}</span>
-            <div className="player-progress-bar">
+            <div 
+              className={`player-progress-bar ${isDragging ? 'dragging' : ''}`}
+              ref={progressBarRef}
+              onClick={handleProgressClick}
+              onMouseDown={handleProgressMouseDown}
+              style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+            >
               <div
                 className="player-progress-filled"
                 style={{ width: `${progressPercentage}%` }}
               >
-                <div className="player-progress-handle"></div>
+                <div className={`player-progress-handle ${isDragging ? 'visible' : ''}`}></div>
               </div>
             </div>
             <span className="player-time-total">{formatTime(currentTrack.duration)}</span>

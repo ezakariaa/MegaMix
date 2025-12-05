@@ -200,6 +200,29 @@ router.post('/scan-files', upload.array('files', 100), async (req: Request, res:
 })
 
 /**
+ * Détecte le numéro de disque depuis le chemin du fichier
+ * Cherche les patterns: CD1, CD2, CD 1, Disc 1, Disc1, etc.
+ */
+function detectDiscNumber(filePath: string): number | undefined {
+  const normalizedPath = filePath.replace(/\\/g, '/') // Normaliser les séparateurs
+  const pathParts = normalizedPath.split('/')
+  
+  for (const part of pathParts) {
+    const name = part.toLowerCase().trim()
+    // Patterns: cd1, cd2, cd 1, disc 1, disc1, etc.
+    const cdMatch = name.match(/^(cd|disc)\s*(\d+)$/i)
+    if (cdMatch) {
+      const discNum = parseInt(cdMatch[2], 10)
+      if (discNum > 0) {
+        return discNum
+      }
+    }
+  }
+  
+  return undefined
+}
+
+/**
  * Extrait les métadonnées ET la couverture d'un fichier audio en une seule passe (optimisé)
  */
 async function extractTrackMetadataAndCover(filePath: string): Promise<{ track: Track | null; coverArt: string | null }> {
@@ -214,6 +237,9 @@ async function extractTrackMetadataAndCover(filePath: string): Promise<{ track: 
     const albumArtist = common.albumartist || undefined
     const album = common.album || path.basename(path.dirname(filePath))
     const title = common.title || path.basename(filePath, path.extname(filePath))
+    
+    // Détecter le numéro de disque depuis le chemin
+    const discNumber = detectDiscNumber(filePath)
 
     // Extraire les tags ID3 additionnels (TPE2, TPE3, TPE4) depuis metadata.native
     let band: string | undefined = undefined // TPE2 (peut être Album Artist ou Band)
@@ -312,6 +338,7 @@ async function extractTrackMetadataAndCover(filePath: string): Promise<{ track: 
       filePath: filePath,
       trackNumber: common.track?.no || undefined,
       year: common.year || undefined,
+      discNumber, // Numéro du disque détecté depuis le chemin
       band,
       conductor,
       remixer,

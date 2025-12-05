@@ -37,6 +37,7 @@ export interface Track {
   googleDriveId?: string // ID Google Drive si le fichier vient de Google Drive
   trackNumber?: number
   year?: number
+  discNumber?: number // Numéro du disque (CD1, CD2, etc.) détecté depuis le filePath
   // Tags ID3 additionnels pour les artistes
   band?: string // TPE2 - Band/Orchestra/Accompaniment (peut être Album Artist)
   conductor?: string // TPE3 - Conductor/Performer refinement

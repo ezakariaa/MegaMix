@@ -117,6 +117,36 @@ function AlbumDetail() {
     return tracks.reduce((total, track) => total + track.duration, 0)
   }
 
+  // Grouper les pistes par disque
+  const groupTracksByDisc = (tracks: Track[]): Map<number | null, Track[]> => {
+    const grouped = new Map<number | null, Track[]>()
+    
+    tracks.forEach(track => {
+      const discNum = track.discNumber || null
+      if (!grouped.has(discNum)) {
+        grouped.set(discNum, [])
+      }
+      grouped.get(discNum)!.push(track)
+    })
+    
+    // Trier les disques (null en premier, puis par numéro croissant)
+    const sortedDiscs = Array.from(grouped.keys()).sort((a, b) => {
+      if (a === null) return -1
+      if (b === null) return 1
+      return a - b
+    })
+    
+    // Créer une nouvelle Map triée
+    const sortedMap = new Map<number | null, Track[]>()
+    sortedDiscs.forEach(discNum => {
+      sortedMap.set(discNum, grouped.get(discNum)!)
+    })
+    
+    return sortedMap
+  }
+
+  const tracksByDisc = groupTracksByDisc(tracks)
+
   if (loading) {
     return (
       <Container fluid className="album-detail-page">
@@ -207,45 +237,65 @@ function AlbumDetail() {
               <p>Aucune piste disponible</p>
             </div>
           ) : (
-            tracks.map((track, index) => (
-              <div
-                key={track.id}
-                className={`tracklist-item ${playingTrackId === track.id ? 'playing' : ''}`}
-                onClick={() => handlePlayTrack(track)}
-              >
-                <div className="tracklist-item-number">
-                  {playingTrackId === track.id && isPlaying ? (
-                    <i className="bi bi-pause-fill playing-icon"></i>
-                  ) : (
-                    <span>{index + 1}</span>
-                  )}
-                </div>
-                <div className="tracklist-item-info">
-                  <div className="tracklist-item-title-artist">
-                    <span className="tracklist-item-title">{track.title}</span>
-                    {/* Toujours afficher l'artiste de la piste (TPE1) */}
-                    <span className="tracklist-item-separator"> - </span>
-                    <span className="tracklist-item-artist">{track.artist}</span>
-                    {/* Afficher les artistes additionnels (TPE2, TPE3, TPE4) si présents */}
-                    {(track.band || track.conductor || track.remixer) && (
-                      <>
-                        <span className="tracklist-item-separator"> • </span>
-                        <span className="tracklist-item-artist-additional">
-                          {[
-                            track.band && `Groupe: ${track.band}`,
-                            track.conductor && `Chef: ${track.conductor}`,
-                            track.remixer && `Remix: ${track.remixer}`
-                          ].filter(Boolean).join(', ')}
-                        </span>
-                      </>
+            (() => {
+              let globalTrackIndex = 0
+              return Array.from(tracksByDisc.entries()).map(([discNumber, discTracks]) => {
+                const discStartIndex = globalTrackIndex
+                globalTrackIndex += discTracks.length
+                
+                return (
+                  <div key={discNumber || 'no-disc'} className="tracklist-disc-group">
+                    {discNumber !== null && (
+                      <div className="tracklist-disc-header">
+                        <h3 className="tracklist-disc-title">Disque {discNumber}</h3>
+                      </div>
                     )}
+                    {discTracks.map((track, discTrackIndex) => {
+                      const globalIndex = discStartIndex + discTrackIndex
+                      return (
+                      <div
+                        key={track.id}
+                        className={`tracklist-item ${playingTrackId === track.id ? 'playing' : ''}`}
+                        onClick={() => handlePlayTrack(track)}
+                      >
+                        <div className="tracklist-item-number">
+                          {playingTrackId === track.id && isPlaying ? (
+                            <i className="bi bi-pause-fill playing-icon"></i>
+                          ) : (
+                            <span>{globalIndex + 1}</span>
+                          )}
+                        </div>
+                        <div className="tracklist-item-info">
+                          <div className="tracklist-item-title-artist">
+                            <span className="tracklist-item-title">{track.title}</span>
+                            {/* Toujours afficher l'artiste de la piste (TPE1) */}
+                            <span className="tracklist-item-separator"> - </span>
+                            <span className="tracklist-item-artist">{track.artist}</span>
+                            {/* Afficher les artistes additionnels (TPE2, TPE3, TPE4) si présents */}
+                            {(track.band || track.conductor || track.remixer) && (
+                              <>
+                                <span className="tracklist-item-separator"> • </span>
+                                <span className="tracklist-item-artist-additional">
+                                  {[
+                                    track.band && `Groupe: ${track.band}`,
+                                    track.conductor && `Chef: ${track.conductor}`,
+                                    track.remixer && `Remix: ${track.remixer}`
+                                  ].filter(Boolean).join(', ')}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="tracklist-item-duration">
+                          {formatDuration(track.duration)}
+                        </div>
+                      </div>
+                      )
+                    })}
                   </div>
-                </div>
-                <div className="tracklist-item-duration">
-                  {formatDuration(track.duration)}
-                </div>
-              </div>
-            ))
+                )
+              })
+            })()
           )}
         </div>
       </div>
