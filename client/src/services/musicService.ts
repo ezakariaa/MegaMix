@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getCached, setCached, removeCached } from './cacheService'
+import { getCached, getCachedEvenExpired, setCached, removeCached } from './cacheService'
 
 // Utiliser la variable d'environnement VITE_API_URL si définie, sinon utiliser localhost par défaut
 // Construire l'URL de base de l'API en ajoutant /api si nécessaire
@@ -333,12 +333,21 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     
     // Si erreur réseau, essayer de retourner le cache même expiré
     if (useCache) {
+      // D'abord essayer le cache valide
       const cached = getCached<Album[]>('albums')
       if (cached && cached.length > 0) {
-        console.warn('[API] Utilisation du cache en raison d\'une erreur réseau')
+        console.warn('[API] Utilisation du cache valide en raison d\'une erreur réseau')
         // Rafraîchir en arrière-plan
         refreshAlbumsInBackground()
         return cached
+      }
+      // Si pas de cache valide, essayer le cache expiré
+      const expiredCache = getCachedEvenExpired<Album[]>('albums')
+      if (expiredCache && expiredCache.length > 0) {
+        console.warn('[API] Utilisation du cache expiré en raison d\'une erreur réseau')
+        // Rafraîchir en arrière-plan
+        refreshAlbumsInBackground()
+        return expiredCache
       }
     }
     
@@ -583,8 +592,16 @@ export async function getArtists(): Promise<Artist[]> {
     return artists
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
-    const expiredCache = getCached<Artist[]>('artists')
+    // D'abord essayer le cache valide
+    const cached = getCached<Artist[]>('artists')
+    if (cached && cached.length > 0) {
+      refreshArtistsInBackground()
+      return cached
+    }
+    // Si pas de cache valide, essayer le cache expiré
+    const expiredCache = getCachedEvenExpired<Artist[]>('artists')
     if (expiredCache && expiredCache.length > 0) {
+      console.warn('[API] Utilisation du cache expiré pour les artistes en raison d\'une erreur réseau')
       refreshArtistsInBackground()
       return expiredCache
     }
@@ -672,11 +689,19 @@ export async function getGenres(useCache: boolean = true): Promise<Genre[]> {
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
     if (useCache) {
+      // D'abord essayer le cache valide
       const cached = getCached<Genre[]>('genres')
       if (cached && cached.length > 0) {
-        console.warn('[API] Utilisation du cache en raison d\'une erreur réseau')
+        console.warn('[API] Utilisation du cache valide en raison d\'une erreur réseau')
         refreshGenresInBackground()
         return cached
+      }
+      // Si pas de cache valide, essayer le cache expiré
+      const expiredCache = getCachedEvenExpired<Genre[]>('genres')
+      if (expiredCache && expiredCache.length > 0) {
+        console.warn('[API] Utilisation du cache expiré en raison d\'une erreur réseau')
+        refreshGenresInBackground()
+        return expiredCache
       }
     }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)

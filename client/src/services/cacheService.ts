@@ -121,6 +121,24 @@ function clearOldCache(): void {
 }
 
 /**
+ * Récupère une valeur du cache même si elle est expirée
+ * Utile en cas d'erreur réseau pour afficher les dernières données disponibles
+ */
+export function getCachedEvenExpired<T>(key: string): T | null {
+  try {
+    const cached = localStorage.getItem(CACHE_PREFIX + key)
+    if (!cached) return null
+
+    const entry: CacheEntry<T> = JSON.parse(cached)
+    // Retourner les données même si expirées
+    return entry.data
+  } catch (error) {
+    console.error('Erreur lors de la lecture du cache:', error)
+    return null
+  }
+}
+
+/**
  * Vérifie si une clé existe dans le cache et n'est pas expirée
  */
 export function hasCached(key: string): boolean {
