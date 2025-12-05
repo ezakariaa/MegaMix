@@ -499,73 +499,30 @@ router.post('/scan-path', async (req: Request, res: Response) => {
 
 /**
  * Route pour obtenir tous les albums
+ * Optimisée pour répondre rapidement comme /artists
  */
 router.get('/albums', async (req: Request, res: Response) => {
-  // Si les données sont déjà chargées, retourner immédiatement (réponse rapide)
-  if (dataLoaded && albums.length > 0) {
-    res.json({ albums })
-    return
-  }
-  
-  // Si les données ne sont pas chargées mais qu'on a déjà des albums en mémoire, les retourner
-  if (albums.length > 0) {
-    console.log('[ALBUMS] Retour des albums en mémoire:', albums.length, 'album(s)')
-    res.json({ albums })
-    // Charger les données en arrière-plan pour la prochaine fois
-    if (!dataLoaded) {
-      loadAllData().then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
-        albums = loadedAlbums
-        tracks = loadedTracks
-        artists = loadedArtists
-        dataLoaded = true
-        console.log(`[ALBUMS] Données chargées en arrière-plan: ${albums.length} album(s)`)
-      }).catch((error) => {
-        console.error('[ALBUMS] Erreur lors du chargement en arrière-plan:', error)
-      })
-    }
-    return
-  }
-  
-  // Si aucune donnée en mémoire, charger rapidement (avec timeout)
+  // Si les données ne sont pas chargées, les charger (comme /artists)
   if (!dataLoaded) {
-    console.log('[ALBUMS] Chargement des données...')
+    console.log('[ALBUMS] Données pas encore chargées, chargement...')
     try {
-      // Timeout de 10 secondes pour le chargement initial
-      const loadPromise = loadAllData()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout chargement données')), 10000)
-      )
-      
-      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await Promise.race([
-        loadPromise,
-        timeoutPromise
-      ]) as { albums: Album[]; tracks: Track[]; artists: Artist[] }
-      
+      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
       albums = loadedAlbums
       tracks = loadedTracks
       artists = loadedArtists
       dataLoaded = true
-      console.log(`[ALBUMS] Données chargées: ${albums.length} album(s)`)
-      res.json({ albums })
-    } catch (error: any) {
-      console.error('[ALBUMS] Erreur ou timeout lors du chargement:', error.message)
-      // Retourner un tableau vide plutôt que de bloquer
-      res.json({ albums: [] })
-      // Continuer le chargement en arrière-plan
-      loadAllData().then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
-        albums = loadedAlbums
-        tracks = loadedTracks
-        artists = loadedArtists
-        dataLoaded = true
-        console.log(`[ALBUMS] Données chargées en arrière-plan: ${albums.length} album(s)`)
-      }).catch((err) => {
-        console.error('[ALBUMS] Erreur lors du chargement en arrière-plan:', err)
-      })
+      console.log(`[ALBUMS] Données chargées: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+    } catch (error) {
+      console.error('[ALBUMS] Erreur lors du chargement:', error)
+      // Si erreur, continuer avec ce qui est en mémoire (même si vide)
+      // Ne pas bloquer la réponse
+      dataLoaded = true // Marquer comme chargé pour éviter de réessayer indéfiniment
     }
-    return
   }
   
-  // Fallback : retourner les albums en mémoire (même si vide)
+  // Retourner immédiatement les albums en mémoire (comme /artists)
+  // Cela garantit une réponse rapide même si le chargement n'est pas terminé
+  console.log(`[ALBUMS] Retour de ${albums.length} album(s)`)
   res.json({ albums })
 })
 

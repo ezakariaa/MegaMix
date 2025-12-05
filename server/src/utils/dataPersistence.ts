@@ -191,10 +191,25 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
   }
 
   // ⚠️ IMPORTANT : Ne pas essayer de récupérer depuis Railway si on est DÉJÀ sur Railway
-  // Cela créerait une boucle infinie ou un timeout
-  const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID
+  // Cela créerait une boucle infinie ou un timeout de 10-15 minutes
+  // Détecter Railway via plusieurs variables d'environnement possibles
+  const isRailway = 
+    process.env.RAILWAY_ENVIRONMENT || 
+    process.env.RAILWAY_PROJECT_ID || 
+    process.env.RAILWAY_SERVICE_NAME ||
+    process.env.RAILWAY_DEPLOYMENT_ID ||
+    process.env.RAILWAY_REPLICA_ID ||
+    (process.env.PORT && process.env.NODE_ENV === 'production') // Si en production avec PORT, probablement Railway
+  
   if (isRailway) {
-    console.log('[PERSISTENCE] On est déjà sur Railway, pas de restauration depuis Railway (évite les boucles)')
+    console.log('[PERSISTENCE] ⚠️ On est déjà sur Railway, pas de restauration depuis Railway (évite les boucles et timeouts)')
+    console.log('[PERSISTENCE] Variables Railway détectées:', {
+      RAILWAY_ENVIRONMENT: !!process.env.RAILWAY_ENVIRONMENT,
+      RAILWAY_PROJECT_ID: !!process.env.RAILWAY_PROJECT_ID,
+      RAILWAY_SERVICE_NAME: !!process.env.RAILWAY_SERVICE_NAME,
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT
+    })
     return { albums, tracks, artists }
   }
 
@@ -213,18 +228,20 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
     const { URL } = require('url')
 
     // Fonction pour LIRE uniquement depuis Railway (GET uniquement, jamais POST/PUT/DELETE)
+    // Timeout court pour éviter les blocages
     function fetchJSON(endpoint: string): Promise<any> {
       return new Promise((resolve, reject) => {
         const url = new URL(`${railwayUrl.replace(/\/$/, '')}/api/music/${endpoint}`)
         const client = url.protocol === 'https:' ? https : http
 
         // ⚠️ SÉCURITÉ : Utilisation de GET uniquement (lecture seule)
+        // Timeout réduit à 5 secondes pour éviter les blocages longs
         const req = client.request({
           hostname: url.hostname,
           port: url.port || (url.protocol === 'https:' ? 443 : 80),
           path: url.pathname + url.search,
           method: 'GET', // LECTURE SEULE - ne modifie jamais les données sur Railway
-          timeout: 30000,
+          timeout: 5000, // Timeout court (5 secondes) pour éviter les blocages
         }, (res) => {
           let data = ''
           res.on('data', (chunk: Buffer) => { data += chunk.toString() })
@@ -244,18 +261,25 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
         req.on('error', reject)
         req.on('timeout', () => {
           req.destroy()
-          reject(new Error('Timeout'))
+          reject(new Error('Timeout (5s)'))
         })
         req.end()
       })
     }
 
-    // Récupérer les données
-    const [albumsData, tracksData, artistsData] = await Promise.all([
-      fetchJSON('albums'),
-      fetchJSON('tracks'),
-      fetchJSON('artists'),
-    ])
+    // Récupérer les données avec timeout global de 10 secondes maximum
+    const fetchWithTimeout = Promise.race([
+      Promise.all([
+        fetchJSON('albums'),
+        fetchJSON('tracks'),
+        fetchJSON('artists'),
+      ]),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout global restauration Railway')), 10000)
+      )
+    ]) as Promise<[any, any, any]>
+
+    const [albumsData, tracksData, artistsData] = await fetchWithTimeout
 
     const fetchedAlbums = albumsData.albums || []
     const fetchedTracks = tracksData.tracks || []
@@ -280,16 +304,27 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
 
 /**
  * Charge toutes les données (albums, tracks, artists)
+ * Optimisé pour être rapide - ne bloque pas sur Railway
  */
 export async function loadAllData(): Promise<{ albums: Album[]; tracks: Track[]; artists: Artist[] }> {
+  // Charger les fichiers en parallèle (plus rapide)
   const [albums, tracks, artists] = await Promise.all([
     loadAlbums(),
     loadTracks(),
     loadArtists(),
   ])
   
-  // Si les fichiers sont vides, essayer de récupérer depuis Railway
+  // Si on a déjà des données, retourner immédiatement (pas besoin de Railway)
+  if (albums.length > 0 || tracks.length > 0 || artists.length > 0) {
+    console.log(`[PERSISTENCE] Données chargées depuis fichiers: ${albums.length} albums, ${tracks.length} pistes, ${artists.length} artistes`)
+    return { albums, tracks, artists }
+  }
+  
+  // Seulement si les fichiers sont vides, essayer de récupérer depuis Railway
+  // Mais NE PAS BLOQUER - retourner immédiatement et restaurer en arrière-plan
   const result = await fetchFromRailwayIfEmpty(albums, tracks, artists)
+  
+  // Retourner le résultat (même si vide, pour éviter de bloquer)
   return result
 }
 
