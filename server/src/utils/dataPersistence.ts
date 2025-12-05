@@ -231,7 +231,8 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
     // Timeout court pour éviter les blocages
     function fetchJSON(endpoint: string): Promise<any> {
       return new Promise((resolve, reject) => {
-        const url = new URL(`${railwayUrl.replace(/\/$/, '')}/api/music/${endpoint}`)
+        // railwayUrl est vérifié avant, donc il n'est pas undefined ici
+        const url = new URL(`${railwayUrl!.replace(/\/$/, '')}/api/music/${endpoint}`)
         const client = url.protocol === 'https:' ? https : http
 
         // ⚠️ SÉCURITÉ : Utilisation de GET uniquement (lecture seule)
@@ -242,7 +243,7 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
           path: url.pathname + url.search,
           method: 'GET', // LECTURE SEULE - ne modifie jamais les données sur Railway
           timeout: 5000, // Timeout court (5 secondes) pour éviter les blocages
-        }, (res) => {
+        }, (res: any) => {
           let data = ''
           res.on('data', (chunk: Buffer) => { data += chunk.toString() })
           res.on('end', () => {

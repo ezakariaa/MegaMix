@@ -13,7 +13,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000
 // Compression gzip pour réduire la taille des réponses (important pour Railway)
 app.use(compression({
   level: 6, // Niveau de compression (1-9, 6 est un bon compromis)
-  filter: (req, res) => {
+  filter: (req: express.Request, res: express.Response) => {
     // Compresser toutes les réponses JSON et texte
     if (req.headers['x-no-compression']) {
       return false

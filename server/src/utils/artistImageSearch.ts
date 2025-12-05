@@ -597,7 +597,9 @@ export async function searchArtistBackground(artistName: string): Promise<string
   }
 
   // Si aucune image n'a été trouvée, essayer TheAudioDB
-  if (!results[0].value && !results[1].value) {
+  const hasLastFm = results[0].status === 'fulfilled' && results[0].value
+  const hasFanart = results[1].status === 'fulfilled' && results[1].value
+  if (!hasLastFm && !hasFanart) {
     try {
       const theAudioDbBanner = await Promise.race([
         searchTheAudioDbBanner(artistName),
