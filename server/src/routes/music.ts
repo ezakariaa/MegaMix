@@ -2183,31 +2183,11 @@ router.post('/import-data', async (req: Request, res: Response) => {
 
     console.log(`[IMPORT] Import de ${importedAlbums.length} album(s), ${importedTracks.length} piste(s), ${importedArtists.length} artiste(s)`)
 
-    // Fusionner avec les données existantes (éviter les doublons)
-    const albumsMap = new Map<string, Album>()
-    const tracksMap = new Map<string, Track>()
-    const artistsMap = new Map<string, Artist>()
-
-    // Charger les données existantes
-    albums.forEach(album => albumsMap.set(album.id, album))
-    tracks.forEach(track => tracksMap.set(track.id, track))
-    artists.forEach(artist => artistsMap.set(artist.id, artist))
-
-    // Ajouter/remplacer avec les données importées
-    importedAlbums.forEach((album: Album) => {
-      albumsMap.set(album.id, album)
-    })
-    importedTracks.forEach((track: Track) => {
-      tracksMap.set(track.id, track)
-    })
-    importedArtists.forEach((artist: Artist) => {
-      artistsMap.set(artist.id, artist)
-    })
-
-    // Convertir les Maps en tableaux
-    albums = Array.from(albumsMap.values())
-    tracks = Array.from(tracksMap.values())
-    artists = Array.from(artistsMap.values())
+    // REMPLACER complètement les données (pas de fusion) pour synchroniser correctement les suppressions
+    // Cela permet de synchroniser les suppressions d'albums depuis le local vers Railway
+    albums = importedAlbums
+    tracks = importedTracks
+    artists = importedArtists
 
     // Sauvegarder les données
     await saveAllData(albums, tracks, artists)
