@@ -260,7 +260,7 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   
   try {
     const response = await axios.get<{ albums: Album[] }>(url, {
-      timeout: 60000, // Augmenté à 60 secondes pour Railway (peut être lent)
+      timeout: 120000, // 120 secondes (2 minutes) pour Railway qui peut être très lent au démarrage
       // Note: Le navigateur gère automatiquement Accept-Encoding, pas besoin de le définir
     })
     const albums = response.data.albums
@@ -312,7 +312,15 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     })
     
     // Afficher des instructions spécifiques selon le type d'erreur
-    if (isCorsError && isGitHubPages) {
+    if (error.code === 'ECONNABORTED' && error.message?.includes('timeout')) {
+      console.error('%c⏱️ TIMEOUT DÉTECTÉ', 'color: orange; font-size: 16px; font-weight: bold;')
+      console.error('%cLe backend Railway prend trop de temps à répondre (> 2 minutes).', 'color: orange; font-size: 14px;')
+      console.error('%cCauses possibles:', 'color: orange; font-size: 14px;')
+      console.error('%c1. Railway est en train de démarrer (cold start)', 'color: orange; font-size: 12px;')
+      console.error('%c2. Les données sont en train de se charger sur Railway', 'color: orange; font-size: 12px;')
+      console.error('%c3. Railway est surchargé', 'color: orange; font-size: 12px;')
+      console.error('%cSolution: Attendez quelques secondes et rechargez la page', 'color: orange; font-size: 14px;')
+    } else if (isCorsError && isGitHubPages) {
       console.error('%c🚫 ERREUR CORS DÉTECTÉE', 'color: red; font-size: 16px; font-weight: bold;')
       console.error('%cLe backend Railway doit autoriser les requêtes depuis GitHub Pages.', 'color: red; font-size: 14px;')
       console.error('%cSolution: Configurez ALLOWED_ORIGINS sur Railway avec votre URL GitHub Pages', 'color: orange; font-size: 14px;')

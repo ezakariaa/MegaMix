@@ -190,6 +190,14 @@ async function fetchFromRailwayIfEmpty(albums: Album[], tracks: Track[], artists
     return { albums, tracks, artists }
   }
 
+  // ⚠️ IMPORTANT : Ne pas essayer de récupérer depuis Railway si on est DÉJÀ sur Railway
+  // Cela créerait une boucle infinie ou un timeout
+  const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID
+  if (isRailway) {
+    console.log('[PERSISTENCE] On est déjà sur Railway, pas de restauration depuis Railway (évite les boucles)')
+    return { albums, tracks, artists }
+  }
+
   // Vérifier si Railway est configuré
   const railwayUrl = process.env.RAILWAY_URL || process.env.KOYEB_URL
   if (!railwayUrl) {

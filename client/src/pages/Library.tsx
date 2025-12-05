@@ -42,11 +42,26 @@ function Library() {
       setAlbums(loadedAlbums)
       if (loadedAlbums.length === 0) {
         console.warn('[LIBRARY] Aucun album trouvé. Vérifiez la connexion au backend.')
+        
+        // Vérifier si on est sur GitHub Pages
+        const isGitHubPages = window.location.hostname.includes('github.io')
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+        
+        let errorMessage = 'Aucun album trouvé. Vérifiez que le backend Railway est accessible.'
+        
+        if (isGitHubPages) {
+          if (!import.meta.env.VITE_API_URL || apiUrl.includes('localhost')) {
+            errorMessage = '⚠️ VITE_API_URL non configuré. Configurez le secret VITE_API_URL dans GitHub Settings > Secrets > Actions. Voir DIAGNOSTIC_GITHUB_PAGES.md'
+          } else {
+            errorMessage = 'Aucun album trouvé. Vérifiez : 1) Les données sont synchronisées sur Railway, 2) CORS est configuré (ALLOWED_ORIGINS), 3) Voir DIAGNOSTIC_GITHUB_PAGES.md'
+          }
+        }
+        
         setMessage({
           type: 'error',
-          text: 'Aucun album trouvé. Vérifiez que le backend Railway est accessible.'
+          text: errorMessage
         })
-        setTimeout(() => setMessage(null), 5000)
+        setTimeout(() => setMessage(null), 10000) // Afficher plus longtemps
       }
     } catch (error: any) {
       console.error('[LIBRARY] Erreur lors du chargement des albums:', error)
