@@ -244,18 +244,17 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   try {
     const response = await axios.get<{ albums: Album[] }>(url, {
       timeout: 60000, // Augmenté à 60 secondes pour Railway (peut être lent)
-      headers: {
-        'Accept-Encoding': 'gzip, deflate, br', // Accepter la compression
-      },
+      // Note: Le navigateur gère automatiquement Accept-Encoding, pas besoin de le définir
     })
     const albums = response.data.albums
     console.log('[API] ✅ Réponse reçue avec succès:', albums.length, 'albums')
     console.log('[API] Status:', response.status, response.statusText)
     
-    // Mettre en cache seulement si succès
-    if (useCache && albums.length > 0) {
-      setCached('albums', albums)
-    }
+    // Ne pas mettre en cache les albums complets (trop volumineux pour localStorage)
+    // Les albums seront toujours récupérés depuis le serveur pour éviter QuotaExceededError
+    // if (useCache && albums.length > 0) {
+    //   setCached('albums', albums)
+    // }
     
     return albums
   } catch (error: any) {
@@ -410,9 +409,7 @@ export async function getTracks(): Promise<Track[]> {
   try {
     const response = await axios.get<{ tracks: Track[] }>(`${API_BASE_URL}/music/tracks`, {
       timeout: 60000, // Augmenté à 60 secondes pour Railway
-      headers: {
-        'Accept-Encoding': 'gzip, deflate, br',
-      },
+      // Note: Le navigateur gère automatiquement Accept-Encoding
     })
     const tracks = response.data.tracks
     
@@ -530,9 +527,7 @@ export async function getArtists(): Promise<Artist[]> {
   try {
     const response = await axios.get<{ artists: Artist[] }>(`${API_BASE_URL}/music/artists`, {
       timeout: 60000, // Augmenté à 60 secondes pour Railway
-      headers: {
-        'Accept-Encoding': 'gzip, deflate, br',
-      },
+      // Note: Le navigateur gère automatiquement Accept-Encoding
     })
     const artists = response.data.artists
     
@@ -620,9 +615,7 @@ export async function getGenres(useCache: boolean = true): Promise<Genre[]> {
   try {
     const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
       timeout: 60000, // Augmenté à 60 secondes pour Railway
-      headers: {
-        'Accept-Encoding': 'gzip, deflate, br',
-      },
+      // Note: Le navigateur gère automatiquement Accept-Encoding
     })
     const genres = response.data.genres
     
