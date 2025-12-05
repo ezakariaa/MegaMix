@@ -26,13 +26,14 @@ function ArtistDetailPage() {
 
     setLoading(true)
     try {
-      // Charger les détails de l'artiste
-      const artistData = await getArtistById(artistId)
+      // Charger les détails de l'artiste et les albums en parallèle pour optimiser le chargement
+      const [artistData, artistAlbums] = await Promise.all([
+        getArtistById(artistId),
+        getArtistAlbums(artistId) // Charger les albums en parallèle
+      ])
+      
       if (artistData) {
         setArtist(artistData)
-        
-        // Charger les albums de l'artiste
-        const artistAlbums = await getArtistAlbums(artistId)
         setAlbums(artistAlbums)
       } else {
         navigate('/artists')

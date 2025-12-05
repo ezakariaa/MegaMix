@@ -34,6 +34,7 @@ function RightSidebar() {
               const delay = attempts <= 3 ? attempts * 500 : 2000
               setTimeout(() => {
                 console.log(`[RightSidebar] Tentative ${attempts}/${maxAttempts} pour récupérer l'image Google Drive`)
+                if (!currentTrack?.artistId) return
                 getArtistById(currentTrack.artistId)
                   .then((updatedArtist) => {
                     console.log('[RightSidebar] Artiste mis à jour:', updatedArtist)
@@ -188,7 +189,6 @@ function RightSidebar() {
                 ) : (
                   <div className="artist-banner-image-placeholder">
                     <i className="bi bi-person-circle"></i>
-                    {console.warn('[RightSidebar] Aucune coverArt pour l\'artiste:', artist?.name)}
                   </div>
                 )}
                 <div className="artist-banner-overlay">

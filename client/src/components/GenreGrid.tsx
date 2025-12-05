@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Genre, getGenreAlbums, getAlbumTracks, getAlbums, Album } from '../services/musicService'
+import { Genre, getGenreAlbums, getAlbumTracks, getAlbums, Album, albumBelongsToGenre } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './AlbumGrid.css' // Réutiliser les styles d'AlbumGrid
 
@@ -23,21 +23,14 @@ function GenreGrid({ genres }: GenreGridProps) {
   const genreCoverMap = useMemo(() => {
     const map = new Map<string, string | null>()
     genres.forEach(genre => {
-      const firstAlbum = allAlbums.find(album => {
-        const albumGenreId = album.genre 
-          ? album.genre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-          : null
-        return albumGenreId === genre.id
-      })
+      const firstAlbum = allAlbums.find(album => albumBelongsToGenre(album, genre.id))
       map.set(genre.id, firstAlbum?.coverArt || null)
     })
     return map
   }, [genres, allAlbums])
 
   const handleGenreClick = (genre: Genre) => {
-    // Pour l'instant, on peut naviguer vers une page de détail du genre
-    // Ou afficher ses albums - à implémenter plus tard
-    console.log('Clic sur genre:', genre.name)
+    navigate(`/genre/${genre.id}`)
   }
 
   const handlePlayClick = async (e: React.MouseEvent, genre: Genre) => {
@@ -71,16 +64,11 @@ function GenreGrid({ genres }: GenreGridProps) {
       if (allTracks.length > 0) {
         // Vérifier si une piste de ce genre est en cours de lecture
         // On compare par le genre de la piste actuelle
-        const currentGenreId = currentTrack?.album 
-          ? (() => {
-              const currentAlbum = allAlbums.find(a => a.id === currentTrack.albumId)
-              return currentAlbum?.genre 
-                ? currentAlbum.genre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-                : null
-            })()
+        const currentAlbum = currentTrack?.albumId 
+          ? allAlbums.find(a => a.id === currentTrack.albumId)
           : null
         
-        const isGenrePlaying = currentGenreId === genre.id
+        const isGenrePlaying = currentAlbum ? albumBelongsToGenre(currentAlbum, genre.id) : false
         
         if (isGenrePlaying) {
           togglePlay()
@@ -169,6 +157,7 @@ function GenreGrid({ genres }: GenreGridProps) {
 }
 
 export default GenreGrid
+
 
 
 

@@ -1,5 +1,4 @@
 import * as https from 'https'
-import { getArtistImageFromGoogleDrive } from './googleDriveImages'
 
 /**
  * Récupère le MusicBrainz ID d'un artiste
@@ -123,53 +122,151 @@ function searchiTunes(artistName: string): Promise<string | null> {
 }
 
 /**
- * Recherche une image d'artiste (photo de profil) UNIQUEMENT sur Google Drive
- * Tous les autres services (iTunes, Last.fm, Fanart.tv, AudioDB) ont été supprimés
+ * Recherche une image d'artiste (photo de profil) sur plusieurs sources automatiques
+ * Sources utilisées (dans l'ordre) :
+ * 1. iTunes/Apple Music (rapide et fiable)
+ * 2. Last.fm (rapide)
+ * 3. Fanart.tv (via MusicBrainz)
+ * 4. TheAudioDB
  */
 export async function searchArtistImage(artistName: string): Promise<string | null> {
   if (!artistName || artistName.trim() === '') {
     return null
   }
 
-  console.log(`[ARTIST IMAGE] Recherche pour: ${artistName}`)
+  console.log(`[ARTIST IMAGE] Recherche automatique pour: ${artistName}`)
 
-  // UNIQUEMENT Google Drive
+  // PRIORITÉ 1 : Essayer iTunes/Apple Music (fiable et bonnes images d'artistes)
   try {
-    const googleDriveImage = getArtistImageFromGoogleDrive(artistName)
-    if (googleDriveImage && googleDriveImage.startsWith('http')) {
-      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Google Drive pour: ${artistName}`)
-      console.log(`[ARTIST IMAGE]   URL: ${googleDriveImage.substring(0, 100)}...`)
-      return googleDriveImage
-    } else {
-      console.log(`[ARTIST IMAGE] ✗ Aucune image trouvée sur Google Drive pour: ${artistName}`)
+    console.log(`[ARTIST IMAGE] Tentative iTunes pour: ${artistName}`)
+    const iTunesImage = await Promise.race([
+      searchiTunes(artistName),
+      new Promise<string | null>((resolve) => {
+        setTimeout(() => {
+          console.log(`[ARTIST IMAGE] Timeout iTunes pour: ${artistName}`)
+          resolve(null)
+        }, 5000)
+      })
+    ])
+    if (iTunesImage && iTunesImage.trim() !== '' && iTunesImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image iTunes trouvée pour: ${artistName}`)
+      console.log(`[ARTIST IMAGE]   URL: ${iTunesImage.substring(0, 100)}...`)
+      return iTunesImage
     }
   } catch (error) {
-    console.warn(`[ARTIST IMAGE] Erreur Google Drive pour ${artistName}:`, error)
+    console.warn(`[ARTIST IMAGE] Erreur iTunes pour ${artistName}:`, error)
+  }
+
+  // PRIORITÉ 2 : Essayer Last.fm (rapide)
+  try {
+    console.log(`[ARTIST IMAGE] Tentative Last.fm pour: ${artistName}`)
+    const lastFmImage = await Promise.race([
+      searchLastFm(artistName),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ])
+    if (lastFmImage && lastFmImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Last.fm pour: ${artistName} - ${lastFmImage.substring(0, 80)}...`)
+      return lastFmImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Last.fm pour ${artistName}:`, error)
+  }
+
+  // PRIORITÉ 3 : Essayer Fanart.tv
+  try {
+    console.log(`[ARTIST IMAGE] Tentative Fanart.tv pour: ${artistName}`)
+    const musicBrainzId = await getMusicBrainzId(artistName)
+    if (musicBrainzId) {
+      const apiKey = process.env.FANART_API_KEY || ''
+      const url = apiKey 
+        ? `https://webservice.fanart.tv/v3/music/${musicBrainzId}?api_key=${apiKey}`
+        : `https://webservice.fanart.tv/v3/music/${musicBrainzId}`
+
+      const fanartImage = await Promise.race([
+        new Promise<string | null>((resolve) => {
+          const timeout = setTimeout(() => {
+            console.log(`[ARTIST IMAGE] Timeout Fanart.tv pour ${artistName}`)
+            resolve(null)
+          }, 4000)
+
+          https.get(url, {
+            headers: {
+              'User-Agent': 'MegaMix/1.0',
+              'Accept': 'application/json'
+            }
+          }, (response: any) => {
+            let data = ''
+            response.on('data', (chunk: Buffer) => { data += chunk.toString() })
+            response.on('end', () => {
+              clearTimeout(timeout)
+              try {
+                const json = JSON.parse(data)
+                // Chercher artistthumb (photo de profil)
+                if (json.artistthumb && json.artistthumb.length > 0) {
+                  const thumbs = json.artistthumb.sort((a: any, b: any) => (b.likes || 0) - (a.likes || 0))
+                  let thumbUrl = thumbs[0].url
+                  
+                  if (thumbUrl && !thumbUrl.startsWith('http')) {
+                    if (thumbUrl.startsWith('/')) {
+                      thumbUrl = `https://assets.fanart.tv${thumbUrl}`
+                    } else {
+                      thumbUrl = `https://assets.fanart.tv/fanart/music/${musicBrainzId}/artistthumb/${thumbUrl}`
+                    }
+                  }
+                  
+                  if (thumbUrl && thumbUrl.includes('images.fanart.tv')) {
+                    thumbUrl = thumbUrl.replace('images.fanart.tv', 'assets.fanart.tv')
+                  }
+                  
+                  if (thumbUrl && thumbUrl.startsWith('http')) {
+                    console.log(`[ARTIST IMAGE] ✓ Image Fanart.tv trouvée pour ${artistName}`)
+                    resolve(thumbUrl)
+                    return
+                  }
+                }
+                resolve(null)
+              } catch (error) {
+                console.warn(`[ARTIST IMAGE] Erreur parsing Fanart.tv pour ${artistName}:`, error)
+                resolve(null)
+              }
+            })
+          }).on('error', (err) => {
+            clearTimeout(timeout)
+            console.warn(`[ARTIST IMAGE] Erreur réseau Fanart.tv pour ${artistName}:`, err)
+            resolve(null)
+          })
+        }),
+        new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 4000))
+      ])
+
+      if (fanartImage && fanartImage.startsWith('http')) {
+        console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Fanart.tv pour: ${artistName}`)
+        return fanartImage
+      }
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Fanart.tv pour ${artistName}:`, error)
+  }
+
+  // PRIORITÉ 4 : Essayer TheAudioDB
+  try {
+    console.log(`[ARTIST IMAGE] Tentative TheAudioDB pour: ${artistName}`)
+    const audioDbImage = await Promise.race([
+      searchTheAudioDbThumb(artistName),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ])
+    if (audioDbImage && audioDbImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur TheAudioDB pour: ${artistName}`)
+      return audioDbImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur TheAudioDB pour ${artistName}:`, error)
   }
 
   console.log(`[ARTIST IMAGE] ✗ Aucune image trouvée pour: ${artistName}`)
   return null
 }
 
-// Fonction désactivée - iTunes supprimé
-async function searchiTunes_OLD(artistName: string): Promise<string | null> {
-  return null
-}
-
-// Fonction désactivée - Last.fm supprimé
-async function searchLastFm_OLD(artistName: string): Promise<string | null> {
-  return null
-}
-
-// Fonction désactivée - Fanart.tv supprimé
-async function searchFanart_OLD(artistName: string): Promise<string | null> {
-  return null
-}
-
-// Fonction désactivée - AudioDB supprimé
-async function searchTheAudioDbThumb_OLD(artistName: string): Promise<string | null> {
-  return null
-}
 
 // Ancien code supprimé - iTunes/Last.fm/Fanart.tv/AudioDB
 /*

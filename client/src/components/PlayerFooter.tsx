@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../contexts/PlayerContext'
 import './PlayerFooter.css'
@@ -12,7 +12,6 @@ function PlayerFooter() {
     isShuffled,
     repeatMode,
     togglePlay,
-    setCurrentTime,
     setVolume,
     setShuffled,
     setRepeatMode,
@@ -23,10 +22,22 @@ function PlayerFooter() {
   const navigate = useNavigate()
   const [isLiked, setIsLiked] = useState(false)
   const [isVolumeHovered, setIsVolumeHovered] = useState(false)
+  const previousVolumeRef = useRef<number>(50) // Volume par défaut si aucun n'était sauvegardé
 
   const handleCoverClick = () => {
     if (currentTrack?.albumId) {
       navigate(`/album/${currentTrack.albumId}`)
+    }
+  }
+
+  const handleVolumeToggle = () => {
+    if (volume > 0) {
+      // Sauvegarder le volume actuel et mettre à mute
+      previousVolumeRef.current = volume
+      setVolume(0)
+    } else {
+      // Restaurer le volume précédent
+      setVolume(previousVolumeRef.current > 0 ? previousVolumeRef.current : 50)
     }
   }
 
@@ -82,7 +93,7 @@ function PlayerFooter() {
                 <i className="bi bi-device-hdd"></i>
               </button>
               <div className="player-volume-control">
-                <button className="player-extra-btn">
+                <button className="player-extra-btn" onClick={handleVolumeToggle}>
                   <i className="bi bi-volume-down"></i>
                 </button>
                 <input
@@ -231,7 +242,7 @@ function PlayerFooter() {
               <i className="bi bi-device-hdd"></i>
             </button>
             <div className="player-volume-control">
-              <button className="player-extra-btn" aria-label="Volume">
+              <button className="player-extra-btn" onClick={handleVolumeToggle} aria-label="Volume">
                 <i className={`bi ${volume === 0 ? 'bi-volume-mute' : volume < 50 ? 'bi-volume-down' : 'bi-volume-up'}`}></i>
               </button>
               <input

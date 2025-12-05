@@ -8,7 +8,6 @@ import { parseFile } from 'music-metadata'
 import { Album, Track, Artist } from '../types'
 import { loadAllData, saveAllData, saveAlbums, saveTracks, saveArtists } from '../utils/dataPersistence'
 import { searchArtistImage, searchLastFm } from '../utils/artistImageSearch'
-import { loadArtistImagesFromGoogleDrive, clearGoogleDriveImagesCache, getArtistImageFromGoogleDrive } from '../utils/googleDriveImages'
 import { getArtistBiography } from '../utils/artistBiography'
 import { syncToKoyeb } from '../utils/syncToKoyeb'
 
@@ -550,116 +549,57 @@ router.get('/tracks', (req: Request, res: Response) => {
 /**
  * Route pour obtenir tous les artistes
  */
-router.get('/artists', (req: Request, res: Response) => {
-  // Vérifier si on doit forcer le rechargement depuis Google Drive
-  const forceReload = req.query.forceReload === 'true'
-  
+router.get('/artists', async (req: Request, res: Response) => {
   // Calculer le nombre d'albums par artiste et INCLURE les images en cache
   const artistsWithAlbumCount = artists.map(artist => {
     const albumCount = albums.filter(album => album.artistId === artist.id).length
     return {
       ...artist,
       albumCount,
-      // INCLURE coverArt si elle existe (ne pas la supprimer)
       coverArt: artist.coverArt || undefined,
     }
   })
   
-  // TOUJOURS vérifier le cache Google Drive pour récupérer les images manquantes
-  artistsWithAlbumCount.forEach((artist) => {
-    if (!artist.coverArt) {
-      const googleDriveImage = getArtistImageFromGoogleDrive(artist.name)
-      if (googleDriveImage && googleDriveImage.startsWith('http')) {
-        const encodedUrl = encodeURIComponent(googleDriveImage)
-        const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
-        
-        // Mettre à jour l'artiste dans la liste originale
-        const artistIndex = artists.findIndex(a => a.id === artist.id)
-        if (artistIndex >= 0) {
-          artists[artistIndex].coverArt = proxyUrl
-        }
-        
-        // Mettre à jour aussi dans la réponse
-        artist.coverArt = proxyUrl
-      }
-    }
-  })
-  
-  // Sauvegarder les artistes mis à jour si nécessaire
-  const updatedArtists = artistsWithAlbumCount.filter(a => {
-    const original = artists.find(art => art.id === a.id)
-    return original && original.coverArt !== a.coverArt && a.coverArt
-  })
-  
-  if (updatedArtists.length > 0) {
-    saveArtists(artists).catch(err => {
-      console.error('[ARTISTS] Erreur lors de la sauvegarde:', err)
-    })
-  }
-  
-  // Compter les artistes avec images en cache
+  // Envoyer la réponse immédiatement
   const artistsWithImages = artistsWithAlbumCount.filter(a => a.coverArt).length
   console.log(`[ARTISTS] Réponse: ${artistsWithAlbumCount.length} artiste(s), ${artistsWithImages} avec image(s)`)
-  
-  // Envoyer la réponse
   res.json({ artists: artistsWithAlbumCount })
   
-  // Rechercher les photos d'artistes en arrière-plan depuis Google Drive
+  // Rechercher automatiquement les fanarts en arrière-plan pour les artistes sans image
   // (après l'envoi de la réponse pour ne pas bloquer)
   setTimeout(() => {
-    // Si forceReload n'est pas activé, chercher seulement ceux sans image
-    const artistsToUpdate = forceReload
-      ? [] // Si forceReload, on a déjà mis à jour depuis le cache, pas besoin de chercher
-      : artistsWithAlbumCount
-          .filter(artist => !artist.coverArt) // Seulement ceux sans image
-          .slice(0, 20) // Traiter jusqu'à 20 artistes à la fois
+    const artistsToUpdate = artistsWithAlbumCount
+      .filter(artist => !artist.coverArt) // Seulement ceux sans image
+      .slice(0, 10) // Traiter jusqu'à 10 artistes à la fois pour ne pas surcharger
     
     if (artistsToUpdate.length === 0) {
-      if (!forceReload) {
-        console.log('[ARTISTS] Tous les artistes ont déjà une image en cache')
-      }
       return
     }
     
-    console.log(`[ARTISTS] Recherche d'images Google Drive pour ${artistsToUpdate.length} artiste(s) sans image...`)
+    console.log(`[ARTISTS] Recherche automatique de fanarts pour ${artistsToUpdate.length} artiste(s) sans image...`)
     
-    // Rechercher en parallèle depuis Google Drive
+    // Rechercher en parallèle depuis les APIs automatiques (iTunes, Last.fm, Fanart.tv, etc.)
     Promise.all(
       artistsToUpdate.map(async (artist) => {
         try {
-          // Rechercher une photo d'artiste depuis Google Drive uniquement
-          const artistImage = searchArtistImage(artist.name)
+          const artistImage = await searchArtistImage(artist.name)
           
           if (artistImage) {
-            // Utiliser le proxy pour éviter les problèmes CORS
             const encodedUrl = encodeURIComponent(artistImage)
             const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
             
-            console.log(`[ARTISTS] ✓ Image Google Drive trouvée pour ${artist.name}`)
-            console.log(`[ARTISTS]   URL originale: ${artistImage.substring(0, 100)}...`)
-            console.log(`[ARTISTS]   URL proxy: ${proxyUrl}`)
-            
-            // Mettre à jour l'artiste dans la liste
             const artistIndex = artists.findIndex(a => a.id === artist.id)
             if (artistIndex >= 0) {
               artists[artistIndex].coverArt = proxyUrl
-              // Sauvegarder SEULEMENT les artistes
-              saveArtists(artists).catch(err => {
-                console.error('[ARTISTS] Erreur lors de la sauvegarde de l\'image d\'artiste:', err)
-              })
-              console.log(`[ARTISTS] Photo d'artiste sauvegardée pour ${artist.name} (via Google Drive)`)
+              saveArtists(artists).catch(() => {})
+              console.log(`[ARTISTS] ✓ Image automatique trouvée et sauvegardée pour ${artist.name}`)
             }
-          } else {
-            console.log(`[ARTISTS] Aucune image Google Drive trouvée pour ${artist.name}`)
           }
         } catch (error) {
-          // Ignorer silencieusement les erreurs pour ne pas polluer les logs
-          console.debug(`[ARTISTS] Erreur lors de la recherche d'image pour ${artist.name}:`, error)
+          // Ignorer silencieusement les erreurs
         }
       })
-    ).catch(err => {
-      console.error('[ARTISTS] Erreur lors de la recherche d\'images en arrière-plan:', err)
-    })
+    ).catch(() => {})
   }, 0)
 })
 
@@ -695,84 +635,11 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
       }
     })
     
-    // Pour RightSidebar, on veut afficher une PHOTO DE PROFIL d'artiste depuis Google Drive
-    let artistBackground: string | null = null
+    // Utiliser l'image en cache si elle existe, sinon rechercher automatiquement en arrière-plan
+    let artistBackground: string | null = artist.coverArt || null
     
-    // TOUJOURS chercher depuis Google Drive, même si une image est en cache
-    // (pour s'assurer qu'on a la dernière version depuis Google Drive)
-    console.log(`[ARTIST] Recherche d'image Google Drive pour ${artist.name}...`)
-    try {
-      // Lancer la recherche de photo de profil (UNIQUEMENT Google Drive) avec timeout court
-      const profileImage = await Promise.race([
-        searchArtistImage(artist.name),
-        new Promise<string | null>((resolve) => {
-          setTimeout(() => {
-            console.log(`[ARTIST] Timeout de recherche d'image pour ${artist.name} (3 secondes)`)
-            resolve(null)
-          }, 3000) // Timeout de 3 secondes car Google Drive est rapide
-        })
-      ])
-      
-      console.log(`[ARTIST] Résultat de la recherche pour ${artist.name}:`, profileImage ? `TROUVÉ (${profileImage.substring(0, 80)}...)` : 'NON TROUVÉ')
-      
-      if (profileImage) {
-        const encodedUrl = encodeURIComponent(profileImage)
-        const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
-        artistBackground = proxyUrl
-        
-        console.log(`[ARTIST] ✓ Image Google Drive trouvée pour ${artist.name}`)
-        console.log(`[ARTIST]   URL originale: ${profileImage.substring(0, 100)}...`)
-        console.log(`[ARTIST]   URL proxy: ${proxyUrl}`)
-        
-        // Sauvegarder immédiatement pour le cache
-        const artistIndex = artists.findIndex(a => a.id === artistId)
-        if (artistIndex >= 0) {
-          artists[artistIndex].coverArt = proxyUrl
-          saveArtists(artists).catch(err => {
-            console.error('[ARTIST] Erreur lors de la sauvegarde de l\'image:', err)
-          })
-          console.log(`[ARTIST] Image sauvegardée dans le cache pour ${artist.name}`)
-        }
-      } else {
-        // Si pas d'image trouvée, utiliser celle en cache si elle existe
-        if (artist.coverArt) {
-          artistBackground = artist.coverArt
-          console.log(`[ARTIST] Image en cache utilisée comme fallback pour ${artist.name}: ${artist.coverArt}`)
-        } else {
-          console.log(`[ARTIST] ✗ Aucune image Google Drive trouvée pour ${artist.name} (ni recherche, ni cache)`)
-        }
-        
-        // Rechercher en arrière-plan pour les prochaines fois
-        searchArtistImage(artist.name)
-          .then((image) => {
-            if (image) {
-              const encodedUrl = encodeURIComponent(image)
-              const proxyUrl = `/api/music/image-proxy?url=${encodedUrl}`
-              
-              const artistIndex = artists.findIndex(a => a.id === artistId)
-              if (artistIndex >= 0) {
-                artists[artistIndex].coverArt = proxyUrl
-                saveArtists(artists).catch(err => {
-                  console.error('[ARTIST] Erreur lors de la sauvegarde de l\'image:', err)
-                })
-                console.log(`[ARTIST] Image trouvée en arrière-plan et sauvegardée pour ${artist.name}: ${proxyUrl}`)
-              }
-            }
-          })
-          .catch((error) => {
-            console.warn(`[ARTIST] Erreur lors de la recherche d'image en arrière-plan pour ${artist.name}:`, error)
-          })
-      }
-    } catch (error) {
-      console.warn(`[ARTIST] Erreur lors de la recherche d'image pour ${artist.name}:`, error)
-      
-      // En cas d'erreur, utiliser l'image en cache si elle existe
-      if (artist.coverArt) {
-        artistBackground = artist.coverArt
-        console.log(`[ARTIST] Image en cache utilisée comme fallback après erreur pour ${artist.name}`)
-      }
-      
-      // Rechercher en arrière-plan pour les prochaines fois
+    // Si pas d'image, rechercher automatiquement en arrière-plan (iTunes, Last.fm, Fanart.tv, etc.)
+    if (!artist.coverArt) {
       searchArtistImage(artist.name)
         .then((image) => {
           if (image) {
@@ -782,47 +649,30 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
             const artistIndex = artists.findIndex(a => a.id === artistId)
             if (artistIndex >= 0) {
               artists[artistIndex].coverArt = proxyUrl
-              saveArtists(artists).catch(err => {
-                console.error('[ARTIST] Erreur lors de la sauvegarde de l\'image:', err)
-              })
-              console.log(`[ARTIST] Image trouvée en arrière-plan et sauvegardée pour ${artist.name}: ${proxyUrl}`)
+              saveArtists(artists).catch(() => {})
             }
           }
         })
-        .catch((err) => {
-          console.warn(`[ARTIST] Erreur lors de la recherche d'image en arrière-plan pour ${artist.name}:`, err)
-        })
+        .catch(() => {})
     }
     
-    // Rechercher la biographie de l'artiste sur Last.fm (en arrière-plan pour ne pas bloquer)
-    let biography: string | null = null
-    // Si l'artiste a déjà une biographie, l'utiliser, sinon rechercher en arrière-plan
-    if (artist.biography) {
-      biography = artist.biography
-    } else {
-      // Rechercher en arrière-plan
+    // Rechercher la biographie de l'artiste sur Last.fm (en arrière-plan)
+    let biography: string | null = artist.biography || null
+    if (!artist.biography) {
       getArtistBiography(artist.name)
         .then((bio) => {
           if (bio) {
             const artistIndex = artists.findIndex(a => a.id === artistId)
             if (artistIndex >= 0) {
               artists[artistIndex].biography = bio
-              saveArtists(artists).catch(err => {
-                console.error('[ARTIST] Erreur lors de la sauvegarde de la biographie:', err)
-              })
+              saveArtists(artists).catch(() => {})
             }
           }
         })
-        .catch((error) => {
-          console.warn(`[ARTIST] Erreur lors de la recherche de biographie en arrière-plan pour ${artist.name}:`, error)
-        })
+        .catch(() => {})
     }
     
-    // Plus de recherche de logo (supprimé comme demandé)
-    
-    // Pour RightSidebar, utiliser TOUJOURS la vraie bannière d'artiste (pas de fallback vers couverture d'album)
-    // Si pas de bannière trouvée, utiliser la photo de profil en cache si elle existe
-    const coverArt = artistBackground || artist.coverArt || null
+    const coverArt = artistBackground
     
     const responseData = {
       ...artist,
@@ -850,6 +700,28 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
 })
 
 /**
+ * Fonction utilitaire pour séparer les genres multiples (séparés par virgule)
+ * et normaliser chaque genre
+ */
+function splitGenres(genreString: string): string[] {
+  if (!genreString || genreString.trim() === '') {
+    return []
+  }
+  // Séparer par virgule et nettoyer chaque genre
+  return genreString
+    .split(',')
+    .map(genre => genre.trim())
+    .filter(genre => genre.length > 0)
+}
+
+/**
+ * Fonction utilitaire pour générer un ID de genre à partir d'un nom
+ */
+function generateGenreId(genreName: string): string {
+  return genreName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+/**
  * Route pour obtenir tous les genres
  */
 router.get('/genres', (req: Request, res: Response) => {
@@ -859,38 +731,48 @@ router.get('/genres', (req: Request, res: Response) => {
   // Parcourir les albums pour extraire les genres
   albums.forEach(album => {
     if (album.genre) {
-      const genreId = album.genre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-      if (!genresMap.has(genreId)) {
-        genresMap.set(genreId, {
-          id: genreId,
-          name: album.genre,
-          trackCount: 0,
-          albumIds: new Set(),
-        })
-      }
-      const genre = genresMap.get(genreId)!
-      genre.albumIds.add(album.id)
+      // Séparer les genres multiples (ex: "Rock, Pop" -> ["Rock", "Pop"])
+      const genreList = splitGenres(album.genre)
+      
+      genreList.forEach(genreName => {
+        const genreId = generateGenreId(genreName)
+        if (!genresMap.has(genreId)) {
+          genresMap.set(genreId, {
+            id: genreId,
+            name: genreName,
+            trackCount: 0,
+            albumIds: new Set(),
+          })
+        }
+        const genre = genresMap.get(genreId)!
+        genre.albumIds.add(album.id)
+      })
     }
   })
   
   // Compter les pistes par genre
   tracks.forEach(track => {
     if (track.genre) {
-      const genreId = track.genre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-      if (!genresMap.has(genreId)) {
-        genresMap.set(genreId, {
-          id: genreId,
-          name: track.genre,
-          trackCount: 0,
-          albumIds: new Set(),
-        })
-      }
-      const genre = genresMap.get(genreId)!
-      genre.trackCount++
-      // Ajouter l'album de la piste si disponible
-      if (track.albumId) {
-        genre.albumIds.add(track.albumId)
-      }
+      // Séparer les genres multiples
+      const genreList = splitGenres(track.genre)
+      
+      genreList.forEach(genreName => {
+        const genreId = generateGenreId(genreName)
+        if (!genresMap.has(genreId)) {
+          genresMap.set(genreId, {
+            id: genreId,
+            name: genreName,
+            trackCount: 0,
+            albumIds: new Set(),
+          })
+        }
+        const genre = genresMap.get(genreId)!
+        genre.trackCount++
+        // Ajouter l'album de la piste si disponible
+        if (track.albumId) {
+          genre.albumIds.add(track.albumId)
+        }
+      })
     }
   })
   
@@ -1149,17 +1031,18 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
         // Pour les dossiers publics, on peut utiliser l'API avec supportsAllDrives=true
         const https = require('https')
         
-        const listFiles = (): Promise<any[]> => {
+        const listFiles = (folderIdToScan?: string): Promise<{files: any[], folders: any[]}> => {
+          const targetFolderId = folderIdToScan || fileId
           return new Promise((resolve, reject) => {
             // Utiliser l'API Google Drive avec la clé API
             const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY
             
             if (!GOOGLE_API_KEY) {
               console.log('[GOOGLE DRIVE] Pas de clé API configurée, tentative de scraping HTML')
-              return scrapeFolderPage(fileId).then(resolve).catch(reject)
+              return scrapeFolderPage(targetFolderId).then(files => resolve({files, folders: []})).catch(reject)
             }
             
-            const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${fileId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,size)&supportsAllDrives=true&includeItemsFromAllDrives=true&key=${GOOGLE_API_KEY}`
+            const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${targetFolderId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,size)&supportsAllDrives=true&includeItemsFromAllDrives=true&key=${GOOGLE_API_KEY}`
             
             console.log(`[GOOGLE DRIVE] Tentative API avec clé API (URL masquée pour sécurité)`)
             
@@ -1178,30 +1061,45 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                     console.error('[GOOGLE DRIVE] Erreur API:', json.error)
                     console.log('[GOOGLE DRIVE] Détails:', JSON.stringify(json.error, null, 2))
                     console.log('[GOOGLE DRIVE] Fallback vers scraping HTML')
-                    return scrapeFolderPage(fileId).then(resolve).catch(reject)
+                    return scrapeFolderPage(targetFolderId).then(files => resolve({files, folders: []})).catch(reject)
                   }
                   
                   if (!json.files || json.files.length === 0) {
                     console.log('[GOOGLE DRIVE] API réussie mais aucun fichier trouvé dans le dossier')
                     console.log('[GOOGLE DRIVE] Réponse complète:', JSON.stringify(json, null, 2))
-                    reject(new Error('Aucun fichier trouvé dans le dossier. Assurez-vous que le dossier est partagé publiquement et contient des fichiers.'))
+                    resolve({files: [], folders: []})
                     return
                   }
                   
-                  console.log(`[GOOGLE DRIVE] API réussie: ${json.files.length} fichier(s) trouvé(s)`)
-                  console.log('[GOOGLE DRIVE] Exemples de fichiers:', json.files.slice(0, 3).map((f: any) => `${f.name} (${f.mimeType})`))
-                  resolve(json.files || [])
+                  // Séparer les fichiers et les dossiers
+                  const files: any[] = []
+                  const folders: any[] = []
+                  
+                  json.files.forEach((f: any) => {
+                    if (f.mimeType === 'application/vnd.google-apps.folder') {
+                      folders.push(f)
+                    } else {
+                      files.push(f)
+                    }
+                  })
+                  
+                  console.log(`[GOOGLE DRIVE] API réussie: ${files.length} fichier(s) et ${folders.length} dossier(s) trouvé(s)`)
+                  console.log('[GOOGLE DRIVE] Exemples de fichiers:', files.slice(0, 3).map((f: any) => `${f.name} (${f.mimeType})`))
+                  if (folders.length > 0) {
+                    console.log('[GOOGLE DRIVE] Dossiers trouvés:', folders.map((f: any) => `${f.name} (${f.id})`))
+                  }
+                  resolve({files, folders})
                 } catch (error: any) {
                   console.error('[GOOGLE DRIVE] Erreur parsing API:', error)
                   console.log('[GOOGLE DRIVE] Réponse brute:', data.substring(0, 1000))
                   console.log('[GOOGLE DRIVE] Fallback vers scraping HTML')
-                  return scrapeFolderPage(fileId).then(resolve).catch(reject)
+                  return scrapeFolderPage(targetFolderId).then(files => resolve({files, folders: []})).catch(reject)
                 }
               })
             }).on('error', (err: Error) => {
               console.error('[GOOGLE DRIVE] Erreur réseau API:', err)
               console.log('[GOOGLE DRIVE] Fallback vers scraping HTML')
-              scrapeFolderPage(fileId).then(resolve).catch(reject)
+              scrapeFolderPage(targetFolderId).then(files => resolve({files, folders: []})).catch(reject)
             })
           })
         }
@@ -1419,21 +1317,57 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
           })
         }
         
-        const files = await listFiles()
-        
-        if (files.length === 0) {
-          return res.status(400).json({ 
-            error: 'Aucun fichier trouvé dans le dossier. Assurez-vous que le dossier est partagé publiquement.' 
-          })
+        // Fonction pour détecter si un nom de dossier ressemble à un CD (CD1, CD2, Disc 1, etc.)
+        const isCDFolder = (folderName: string): boolean => {
+          const name = folderName.toLowerCase().trim()
+          // Patterns: CD1, CD2, CD 1, Disc 1, Disc1, Disc 2, etc.
+          return /^(cd|disc)\s*\d+$/i.test(name) || 
+                 /^cd\d+$/i.test(name) || 
+                 /^disc\d+$/i.test(name)
         }
         
-        // Filtrer uniquement les fichiers audio
-        const audioFiles = files.filter((f: any) => {
-          const name = f.name?.toLowerCase() || ''
-          return name.endsWith('.mp3') || name.endsWith('.m4a') || name.endsWith('.flac') || 
-                 name.endsWith('.wav') || name.endsWith('.ogg') || name.endsWith('.aac') ||
-                 f.mimeType?.startsWith('audio/')
-        })
+        // Fonction récursive pour scanner un dossier et collecter tous les fichiers audio
+        const scanFolderRecursively = async (folderId: string, folderName: string = '', depth: number = 0): Promise<{files: any[], cdFolders: any[]}> => {
+          console.log(`[GOOGLE DRIVE] Scan du dossier "${folderName}" (ID: ${folderId}, profondeur: ${depth})`)
+          const result = await listFiles(folderId)
+          
+          const allFiles: any[] = []
+          const cdFolders: any[] = []
+          
+          // Ajouter les fichiers audio du dossier actuel
+          const audioFiles = result.files.filter((f: any) => {
+            const name = f.name?.toLowerCase() || ''
+            return name.endsWith('.mp3') || name.endsWith('.m4a') || name.endsWith('.flac') || 
+                   name.endsWith('.wav') || name.endsWith('.ogg') || name.endsWith('.aac') ||
+                   f.mimeType?.startsWith('audio/')
+          })
+          allFiles.push(...audioFiles)
+          
+          // Détecter les sous-dossiers qui sont des CDs
+          for (const folder of result.folders) {
+            if (isCDFolder(folder.name)) {
+              console.log(`[GOOGLE DRIVE] CD détecté: "${folder.name}" (ID: ${folder.id})`)
+              cdFolders.push(folder)
+              // Scanner récursivement le CD
+              const cdResult = await scanFolderRecursively(folder.id, folder.name, depth + 1)
+              allFiles.push(...cdResult.files)
+              cdFolders.push(...cdResult.cdFolders)
+            } else if (depth === 0) {
+              // Au niveau racine, scanner aussi les autres sous-dossiers (peut-être des CDs avec d'autres noms)
+              console.log(`[GOOGLE DRIVE] Sous-dossier trouvé: "${folder.name}" (ID: ${folder.id})`)
+              const subResult = await scanFolderRecursively(folder.id, folder.name, depth + 1)
+              allFiles.push(...subResult.files)
+              cdFolders.push(...subResult.cdFolders)
+            }
+          }
+          
+          return {files: allFiles, cdFolders}
+        }
+        
+        // Scanner le dossier racine récursivement
+        const scanResult = await scanFolderRecursively(fileId, 'Racine', 0)
+        const audioFiles = scanResult.files
+        const cdFolders = scanResult.cdFolders
         
         if (audioFiles.length === 0) {
           return res.status(400).json({ 
@@ -1441,7 +1375,10 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
           })
         }
         
-        console.log(`[GOOGLE DRIVE] ${audioFiles.length} fichier(s) audio trouvé(s) dans le dossier`)
+        console.log(`[GOOGLE DRIVE] ${audioFiles.length} fichier(s) audio trouvé(s) au total`)
+        if (cdFolders.length > 0) {
+          console.log(`[GOOGLE DRIVE] ${cdFolders.length} CD(s) détecté(s):`, cdFolders.map(f => f.name))
+        }
         console.log(`[GOOGLE DRIVE] Liste des fichiers audio:`, audioFiles.map((f: any) => `${f.name} (${f.id})`).slice(0, 5))
         
         // Vérifier si ce dossier Google Drive a déjà été ajouté
@@ -1657,6 +1594,7 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                       ...existingAlbum,
                       googleDriveFolderId: existingAlbum.googleDriveFolderId || fileId,
                       trackCount: (existingAlbum.trackCount || 0) + 1,
+                      cdCount: cdFolders.length > 0 ? cdFolders.length : existingAlbum.cdCount,
                     })
                     console.log(`[GOOGLE DRIVE] Album existant mis à jour: ${track.album}`)
                   } else {
@@ -1671,8 +1609,9 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                       trackCount: 1,
                       coverArt: coverArt ?? undefined,
                       googleDriveFolderId: fileId, // Associer le dossier Google Drive
+                      cdCount: cdFolders.length > 0 ? cdFolders.length : undefined, // Nombre de CDs détectés
                     })
-                    console.log(`[GOOGLE DRIVE] Nouvel album créé: ${track.album} (compilation: ${isCompilation})`)
+                    console.log(`[GOOGLE DRIVE] Nouvel album créé: ${track.album} (compilation: ${isCompilation}${cdFolders.length > 0 ? `, ${cdFolders.length} CD(s)` : ''})`)
                   }
                 } else {
                   const album = albumsMap.get(albumKey)!
@@ -1681,7 +1620,11 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                     album.coverArt = coverArt
                   }
                   album.googleDriveFolderId = album.googleDriveFolderId || fileId
-                  console.log(`[GOOGLE DRIVE] Album mis à jour: ${track.album} (${album.trackCount} pistes)`)
+                  // Mettre à jour le nombre de CDs si des CDs ont été détectés
+                  if (cdFolders.length > 0 && (!album.cdCount || album.cdCount < cdFolders.length)) {
+                    album.cdCount = cdFolders.length
+                  }
+                  console.log(`[GOOGLE DRIVE] Album mis à jour: ${track.album} (${album.trackCount} pistes${album.cdCount ? `, ${album.cdCount} CD(s)` : ''})`)
                 }
                 
                 if (!artistsMap.has(track.artistId)) {
@@ -2057,64 +2000,6 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
 })
 
 /**
- * Route pour charger les images d'artistes depuis un dossier Google Drive
- * POST /api/music/load-artist-images-from-drive
- * Body: { folderId: "ID_DU_DOSSIER_GOOGLE_DRIVE" }
- */
-router.post('/load-artist-images-from-drive', async (req: Request, res: Response) => {
-  try {
-    const { folderId } = req.body
-
-    if (!folderId || typeof folderId !== 'string') {
-      return res.status(400).json({ error: 'ID du dossier Google Drive requis' })
-    }
-
-    console.log(`[GOOGLE DRIVE IMAGES] Rechargement des images depuis le dossier: ${folderId}`)
-
-    // Charger les images depuis Google Drive (va vider et recharger dans la fonction)
-    await loadArtistImagesFromGoogleDrive(folderId)
-
-    // Récupérer les clés du cache pour les afficher
-    const { getGoogleDriveImagesCache } = require('../utils/googleDriveImages')
-    const cache = getGoogleDriveImagesCache ? getGoogleDriveImagesCache() : new Map()
-    const cacheKeys = Array.from(cache.keys())
-
-    res.json({
-      success: true,
-      message: 'Images d\'artistes chargées depuis Google Drive avec succès',
-      imagesLoaded: cacheKeys.length,
-      artists: cacheKeys
-    })
-  } catch (error: any) {
-    console.error('[GOOGLE DRIVE IMAGES] Erreur:', error)
-    res.status(500).json({ error: error.message || 'Erreur lors du chargement des images depuis Google Drive' })
-  }
-})
-
-/**
- * Route pour vérifier le cache des images Google Drive
- * GET /api/music/google-drive-images-cache
- */
-router.get('/google-drive-images-cache', (req: Request, res: Response) => {
-  try {
-    const { getGoogleDriveImagesCache } = require('../utils/googleDriveImages')
-    const cache = getGoogleDriveImagesCache ? getGoogleDriveImagesCache() : new Map()
-    const cacheKeys = Array.from(cache.keys())
-    
-    res.json({
-      cacheSize: cache.size,
-      artists: cacheKeys,
-      message: cache.size > 0 
-        ? `${cache.size} image(s) chargée(s) depuis Google Drive`
-        : 'Aucune image chargée. Utilisez POST /api/music/load-artist-images-from-drive pour charger les images.'
-    })
-  } catch (error: any) {
-    console.error('[GOOGLE DRIVE IMAGES] Erreur:', error)
-    res.status(500).json({ error: error.message || 'Erreur lors de la récupération du cache' })
-  }
-})
-
-/**
  * Route proxy pour servir les images externes (évite les problèmes CORS)
  */
 router.get('/image-proxy', async (req: Request, res: Response) => {
@@ -2174,14 +2059,25 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
             if (redirectResponse.statusCode !== 200) {
               console.warn(`[IMAGE PROXY] Erreur HTTP ${redirectResponse.statusCode} après redirection pour: ${decodedUrl.substring(0, 100)}`)
               // Retourner 204 (No Content) au lieu d'une erreur pour que le frontend puisse gérer gracieusement
-              return res.status(204).end()
+              if (!res.headersSent) {
+                return res.status(204).end()
+              }
+              return
             }
+            
+            // Vérifier que les headers n'ont pas déjà été envoyés
+            if (res.headersSent) {
+              console.warn(`[IMAGE PROXY] Headers déjà envoyés, impossible de définir les headers pour la redirection`)
+              return
+            }
+            
             const contentType = redirectResponse.headers['content-type'] || 'image/jpeg'
             res.setHeader('Content-Type', contentType)
             res.setHeader('Cache-Control', 'public, max-age=86400')
             res.setHeader('Access-Control-Allow-Origin', '*')
             redirectResponse.pipe(res)
-          }).on('error', () => {
+          }).on('error', (err: Error) => {
+            console.error(`[IMAGE PROXY] Erreur lors de la redirection:`, err)
             if (!res.headersSent) {
               res.status(204).end()
             }
@@ -2193,7 +2089,16 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
         console.warn(`[IMAGE PROXY] Erreur HTTP ${response.statusCode} pour: ${decodedUrl.substring(0, 100)}`)
         // Retourner 204 (No Content) au lieu d'une erreur pour que le frontend puisse gérer gracieusement
         // Le frontend pourra alors utiliser une image par défaut ou masquer l'image
-        return res.status(204).end()
+        if (!res.headersSent) {
+          return res.status(204).end()
+        }
+        return
+      }
+
+      // Vérifier que les headers n'ont pas déjà été envoyés
+      if (res.headersSent) {
+        console.warn(`[IMAGE PROXY] Headers déjà envoyés, impossible de définir les headers`)
+        return
       }
 
       const contentType = response.headers['content-type'] || 'image/jpeg'

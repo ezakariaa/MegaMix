@@ -21,9 +21,9 @@ function MobileNavFooter() {
       path: '/artists',
     },
     {
-      icon: 'bi-vinyl',
-      label: 'Albums',
-      path: '/albums',
+      icon: 'bi-tags',
+      label: 'Genres',
+      path: '/genres',
     },
     {
       icon: 'bi-collection-play',

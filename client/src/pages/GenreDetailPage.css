@@ -1,9 +1,9 @@
-.artist-detail-page {
+.genre-detail-page {
   padding: 24px;
   min-height: calc(100vh - 200px);
 }
 
-.artist-loading {
+.genre-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -13,7 +13,7 @@
   text-align: center;
 }
 
-.artist-loading i {
+.genre-loading i {
   font-size: 3rem;
   margin-bottom: 16px;
 }
@@ -31,7 +31,7 @@
   }
 }
 
-.artist-not-found {
+.genre-not-found {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -41,23 +41,51 @@
   text-align: center;
 }
 
-.artist-not-found i {
+.genre-not-found i {
   font-size: 4rem;
   margin-bottom: 24px;
   color: #ff6b6b;
 }
 
-.artist-not-found h2 {
+.genre-not-found h2 {
   font-size: 1.5rem;
   color: #ffffff;
   margin-bottom: 24px;
 }
 
-.artist-header {
+.genre-header {
   margin-bottom: 48px;
 }
 
-.artist-title {
+.genre-header-content {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.genre-cover {
+  width: 232px;
+  height: 232px;
+  min-width: 232px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  background-color: var(--spotify-gray);
+}
+
+.genre-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.genre-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.genre-title {
   font-size: 2.5rem;
   font-weight: 700;
   color: #ffffff;
@@ -66,62 +94,18 @@
   align-items: center;
 }
 
-.artist-title i {
+.genre-title i {
   color: var(--spotify-green);
 }
 
-.artist-logo-container {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.artist-logo {
-  max-height: 120px;
-  max-width: 400px;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  filter: brightness(1.1);
-  transition: opacity 0.3s ease;
-}
-
-.artist-logo-placeholder {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--spotify-light-gray);
-  font-size: 0.9rem;
-  margin-bottom: 24px;
-  padding: 12px;
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  width: fit-content;
-  opacity: 0.6;
-}
-
-.artist-logo-placeholder i {
-  font-size: 1.2rem;
-  opacity: 0.6;
-}
-
-.artist-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.artist-stats {
+.genre-stats {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 24px;
 }
 
-.artist-stat {
+.genre-stat {
   padding: 8px 16px;
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 20px;
@@ -130,12 +114,7 @@
   font-weight: 500;
 }
 
-.artist-stat.artist-genre {
-  background-color: rgba(29, 185, 84, 0.2);
-  color: var(--spotify-green);
-}
-
-.artist-play-button {
+.genre-play-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -150,38 +129,17 @@
   transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
-.artist-play-button:hover:not(:disabled) {
+.genre-play-button:hover:not(:disabled) {
   transform: scale(1.05);
   background-color: #1ed760;
 }
 
-.artist-play-button:disabled {
+.genre-play-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.artist-biography {
-  margin-bottom: 32px;
-  padding: 24px;
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-}
-
-.artist-biography h3 {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 16px;
-}
-
-.artist-biography p {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--spotify-light-gray);
-  margin: 0;
-}
-
-.artist-albums-section {
+.genre-albums-section {
   margin-top: 48px;
 }
 
@@ -198,7 +156,7 @@
   color: var(--spotify-green);
 }
 
-.artist-no-albums {
+.genre-no-albums {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -208,34 +166,39 @@
   text-align: center;
 }
 
-.artist-no-albums i {
+.genre-no-albums i {
   font-size: 4rem;
   margin-bottom: 24px;
   opacity: 0.5;
 }
 
-.artist-no-albums p {
+.genre-no-albums p {
   font-size: 1.1rem;
   color: #ffffff;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .artist-detail-page {
+  .genre-detail-page {
     padding: 16px;
   }
 
-  .artist-title {
-    font-size: 2rem;
-    margin-bottom: 20px;
-  }
-
-  .artist-info {
+  .genre-header-content {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .artist-play-button {
+  .genre-cover {
+    width: 100%;
+    max-width: 232px;
+  }
+
+  .genre-title {
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+
+  .genre-play-button {
     width: 100%;
   }
 
@@ -243,6 +206,4 @@
     font-size: 1.5rem;
   }
 }
-
-
 

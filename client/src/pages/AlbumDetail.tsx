@@ -34,14 +34,16 @@ function AlbumDetail() {
 
     setLoading(true)
     try {
-      // Charger tous les albums pour trouver celui qui correspond
-      const allAlbums = await getAlbums()
+      // Charger l'album et les pistes en parallèle pour optimiser le chargement
+      const [allAlbums, albumTracks] = await Promise.all([
+        getAlbums(), // Utilise le cache si disponible
+        getAlbumTracks(albumId) // Charger les pistes en parallèle
+      ])
+      
       const foundAlbum = allAlbums.find(a => a.id === albumId)
 
       if (foundAlbum) {
         setAlbum(foundAlbum)
-        // Charger les pistes de l'album
-        const albumTracks = await getAlbumTracks(albumId)
         // Log pour déboguer les tags
         console.log('[ALBUM DETAIL] Pistes chargées:', albumTracks.map(t => ({
           title: t.title,
@@ -155,12 +157,14 @@ function AlbumDetail() {
           )}
         </div>
         <div className="album-detail-info">
-          <p className="album-detail-type">Album</p>
           <h1 className="album-detail-title">{album.title}</h1>
           <div className="album-detail-meta">
             <span className="album-detail-artist">{album.artist}</span>
             {album.year && <span>• {album.year}</span>}
             <span>• {tracks.length} {tracks.length === 1 ? 'titre' : 'titres'}</span>
+            {album.cdCount && album.cdCount > 1 && (
+              <span> • {album.cdCount} CD{album.cdCount > 1 ? 's' : ''}</span>
+            )}
             {totalDuration > 0 && (
               <span>, {totalMinutes} min {totalSeconds} s</span>
             )}

@@ -25,3 +25,4 @@ Write-Host "✅ Cache des images d'artistes supprimé avec succès!" -Foreground
 Write-Host "🔄 Les images seront rechargées lors de la prochaine requête." -ForegroundColor Green
 
 
+

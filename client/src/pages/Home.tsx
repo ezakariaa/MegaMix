@@ -12,11 +12,13 @@ function Home() {
   const { currentTrack, queue } = usePlayer()
 
   useEffect(() => {
+    // Charger immédiatement sans loader (utilise le cache)
     loadAlbums()
   }, [])
 
   const loadAlbums = async () => {
     try {
+      // getAlbums() utilise automatiquement le cache s'il est disponible
       const loadedAlbums = await getAlbums()
       setAlbums(loadedAlbums)
     } catch (error) {

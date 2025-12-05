@@ -24,7 +24,9 @@ function Library() {
 
   // Charger les albums au montage du composant
   useEffect(() => {
-    loadAlbums()
+    // Charger immédiatement sans afficher le loader (utilise le cache)
+    // getAlbums() utilise automatiquement le cache s'il est disponible
+    loadAlbums(false)
   }, [])
 
   const loadAlbums = async (showLoading: boolean = false) => {
@@ -33,6 +35,7 @@ function Library() {
     }
     try {
       console.log('[LIBRARY] Chargement des albums...')
+      // getAlbums() utilise automatiquement le cache s'il est disponible
       const loadedAlbums = await getAlbums()
       console.log('[LIBRARY] Albums chargés:', loadedAlbums.length)
       setAlbums(loadedAlbums)
@@ -48,21 +51,50 @@ function Library() {
       console.error('[LIBRARY] Erreur lors du chargement des albums:', error)
       console.error('[LIBRARY] Détails de l\'erreur:', {
         message: error.message,
+        code: error.code,
         response: error.response?.data,
         status: error.response?.status,
-        url: error.config?.url
+        statusText: error.response?.statusText,
+        headers: error.response?.headers,
+        url: error.config?.url,
+        requestUrl: error.request?.responseURL
       })
       
       // Détecter si on est sur GitHub Pages
       const isGitHubPages = window.location.hostname.includes('github.io')
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const currentOrigin = window.location.origin
+      
+      console.log('[LIBRARY] Contexte:', {
+        isGitHubPages,
+        apiUrl,
+        currentOrigin,
+        errorCode: error.code,
+        errorStatus: error.response?.status,
+        errorMessage: error.message
+      })
       
       let errorMessage = `Erreur de connexion au backend: ${error.message || 'Vérifiez que le backend est accessible'}`
       
+      // Détection précise des erreurs CORS
+      const isCorsError = 
+        error.message?.toLowerCase().includes('cors') ||
+        error.message?.toLowerCase().includes('not allowed by cors') ||
+        error.response?.status === 0 && error.code === 'ERR_NETWORK' && isGitHubPages ||
+        (error.response?.status === 403 && error.response?.headers?.['access-control-allow-origin'] === undefined) ||
+        (error.code === 'ERR_NETWORK' && error.message?.includes('CORS'))
+      
       if (isGitHubPages && (apiUrl.includes('localhost') || !apiUrl || apiUrl === 'http://localhost:5000')) {
         errorMessage = '⚠️ Configuration manquante: VITE_API_URL n\'est pas configuré. Configurez le secret VITE_API_URL dans GitHub Settings > Secrets > Actions. Voir GITHUB_PAGES_SETUP.md pour plus d\'informations.'
-      } else if (error.response?.status === 0 || error.code === 'ERR_NETWORK' || error.message?.includes('CORS')) {
-        errorMessage = 'Erreur CORS: Le backend doit autoriser les requêtes depuis GitHub Pages. Configurez ALLOWED_ORIGINS sur votre backend. Voir GITHUB_PAGES_SETUP.md'
+      } else if (isCorsError) {
+        console.error('[LIBRARY] ⚠️ Erreur CORS détectée')
+        console.error('[LIBRARY]   Origine actuelle:', currentOrigin)
+        console.error('[LIBRARY]   URL API:', apiUrl)
+        errorMessage = `Erreur CORS: Le backend doit autoriser les requêtes depuis ${currentOrigin}. Configurez ALLOWED_ORIGINS sur votre backend Railway. Voir GITHUB_PAGES_SETUP.md`
+      } else if (error.code === 'ERR_NETWORK' || error.response?.status === 0) {
+        // Erreur réseau générique (peut être timeout, serveur inaccessible, etc.)
+        console.error('[LIBRARY] ⚠️ Erreur réseau (pas nécessairement CORS)')
+        errorMessage = `Erreur de connexion: Impossible de joindre le backend à ${apiUrl}. Vérifiez que le serveur est démarré et accessible.`
       }
       
       setMessage({
@@ -313,7 +345,7 @@ function Library() {
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h1 className="page-title mb-0">
                   <i className="bi bi-music-note-list me-2"></i>
-                  Bibliothèque<span className="album-count">{albums.length}<span className="album-text"> albums</span></span>
+                  Bibliothèque : <span className="album-count">{albums.length}<span className="album-text"> albums</span></span>
                 </h1>
                 <div className="d-flex align-items-center gap-2">
                   <button

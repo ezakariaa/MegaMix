@@ -15,29 +15,67 @@ ensureUploadDirectory().catch(err => {
 })
 
 // Configuration CORS
-// En production, accepter toutes les origines si ALLOWED_ORIGINS n'est pas défini
-// Sinon, utiliser la liste des origines autorisées
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : process.env.NODE_ENV === 'production' 
-    ? ['*'] // En production, accepter toutes les origines par défaut
-    : ['http://localhost:3000'] // En développement, seulement localhost
+// Par défaut, autoriser TOUTES les origines pour faciliter le déploiement
+// Si ALLOWED_ORIGINS est défini, utiliser cette liste spécifique
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS?.trim()
+let allowedOrigins: string[] = ['*'] // Par défaut, autoriser toutes les origines
+
+if (allowedOriginsEnv && allowedOriginsEnv !== '*') {
+  // Si ALLOWED_ORIGINS est défini et n'est pas '*', utiliser la liste spécifique
+  allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim()).filter(origin => origin.length > 0)
+} else if (!allowedOriginsEnv && process.env.NODE_ENV === 'development') {
+  // En développement local seulement, restreindre à localhost
+  allowedOrigins = ['http://localhost:3000', 'http://localhost:5173']
+}
+
+// Log de la configuration CORS pour le débogage
+console.log(`[CORS] ===== Configuration CORS =====`)
+console.log(`[CORS]   NODE_ENV: ${process.env.NODE_ENV || 'non défini'}`)
+console.log(`[CORS]   ALLOWED_ORIGINS: ${allowedOriginsEnv || 'non défini (autorise TOUTES les origines)'}`)
+console.log(`[CORS]   Origines autorisées: ${allowedOrigins.includes('*') ? '✅ TOUTES (*)' : allowedOrigins.join(', ')}`)
 
 app.use(cors({
   origin: (origin, callback) => {
-    // En production sans origine spécifique, autoriser toutes les origines
-    if (allowedOrigins.includes('*') || !origin) {
+    // Log toutes les requêtes pour le débogage
+    console.log(`[CORS] 🔍 Requête reçue - Origine: ${origin || 'aucune (même domaine/Postman)'}`)
+    
+    // Si '*' est dans la liste, autoriser toutes les origines
+    if (allowedOrigins.includes('*')) {
+      console.log(`[CORS] ✅ Autorisation accordée (mode '*')`)
       return callback(null, true)
     }
+    
+    // Si aucune origine n'est fournie (requêtes depuis le même domaine, Postman, etc.), autoriser
+    if (!origin) {
+      console.log(`[CORS] ✅ Autorisation accordée (pas d'origine)`)
+      return callback(null, true)
+    }
+    
+    // Vérifier si l'origine est dans la liste autorisée
     if (allowedOrigins.includes(origin)) {
+      console.log(`[CORS] ✅ Autorisation accordée (dans la liste)`)
       return callback(null, true)
     }
-    callback(new Error('Not allowed by CORS'))
+    
+    // Log pour le débogage
+    console.warn(`[CORS] ⚠️  Origine bloquée: ${origin}`)
+    console.warn(`[CORS]   Origines autorisées: ${allowedOrigins.join(', ')}`)
+    console.warn(`[CORS]   Pour autoriser cette origine, configurez ALLOWED_ORIGINS sur Railway`)
+    
+    callback(new Error(`Not allowed by CORS. Origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`))
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
 }))
+
+// Middleware pour logger toutes les requêtes entrantes (après CORS)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || 'aucune'
+  console.log(`[REQUEST] ${req.method} ${req.path} - Origine: ${origin}`)
+  next()
+})
 
 // Middleware
 app.use(express.json({ limit: '100mb' }))
@@ -88,38 +126,6 @@ app.listen(PORT, HOST, () => {
   console.log(`🚀 Serveur MuZak démarré sur le port ${PORT}`)
   console.log(`📍 URL: http://${HOST}:${PORT}`)
   
-  // Vérifier la configuration de la clé API Google Drive
-  if (process.env.GOOGLE_API_KEY) {
-    console.log(`✅ Clé API Google Drive configurée (${process.env.GOOGLE_API_KEY.substring(0, 10)}...)`)
-  } else {
-    console.log(`⚠️  Clé API Google Drive non configurée - l'import depuis Google Drive ne fonctionnera pas`)
-  }
-
-  // Charger automatiquement les images d'artistes depuis Google Drive si configuré
-  const ARTIST_IMAGES_FOLDER_ID = process.env.ARTIST_IMAGES_FOLDER_ID
-  if (ARTIST_IMAGES_FOLDER_ID && process.env.GOOGLE_API_KEY) {
-    console.log(`📁 Chargement automatique des images d'artistes depuis Google Drive...`)
-    console.log(`📁 Folder ID: ${ARTIST_IMAGES_FOLDER_ID}`)
-    const { loadArtistImagesFromGoogleDrive } = require('./utils/googleDriveImages')
-    loadArtistImagesFromGoogleDrive(ARTIST_IMAGES_FOLDER_ID)
-      .then(() => {
-        console.log(`✅ Images d'artistes chargées depuis Google Drive`)
-        // Vérifier le cache après chargement
-        const { getGoogleDriveImagesCache } = require('./utils/googleDriveImages')
-        const cache = getGoogleDriveImagesCache()
-        console.log(`📊 Cache Google Drive: ${cache.size} image(s) chargée(s)`)
-        if (cache.size > 0) {
-          const cacheKeys = Array.from(cache.keys())
-          console.log(`📊 Exemples d'artistes dans le cache: ${cacheKeys.slice(0, 5).join(', ')}`)
-        }
-      })
-      .catch((err: Error) => {
-        console.warn(`⚠️  Erreur lors du chargement des images depuis Google Drive:`, err.message)
-        console.error(`⚠️  Détails de l'erreur:`, err)
-      })
-  } else if (ARTIST_IMAGES_FOLDER_ID) {
-    console.log(`⚠️  ARTIST_IMAGES_FOLDER_ID configuré mais GOOGLE_API_KEY manquante`)
-  } else {
-    console.log(`ℹ️  ARTIST_IMAGES_FOLDER_ID non configuré - les images Google Drive ne seront pas chargées automatiquement`)
-  }
+  // Images d'artistes récupérées automatiquement via les APIs fanart (iTunes, Last.fm, Fanart.tv, TheAudioDB)
+  console.log(`ℹ️  Récupération automatique des images d'artistes via les APIs fanart`)
 })

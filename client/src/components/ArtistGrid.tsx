@@ -56,20 +56,40 @@ function ArtistGrid({ artists }: ArtistGridProps) {
     }
   }, [artists])
 
-  // Charger tous les albums et pistes pour vérifier les compilations
+  // Charger tous les albums et pistes pour vérifier les compilations EN ARRIÈRE-PLAN
+  // Ne pas bloquer l'affichage initial
   useEffect(() => {
     const loadData = async () => {
       setCompilationsLoading(true)
       try {
-        const [albums, tracks] = await Promise.all([
-          getAlbums(),
-          getTracks()
-        ])
-        setAllAlbums(albums)
-        setAllTracks(tracks)
+        // Utiliser requestIdleCallback pour ne pas bloquer le rendu initial
+        const scheduleLoad = () => {
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(async () => {
+              const [albums, tracks] = await Promise.all([
+                getAlbums(),
+                getTracks()
+              ])
+              setAllAlbums(albums)
+              setAllTracks(tracks)
+              setCompilationsLoading(false)
+            }, { timeout: 3000 })
+          } else {
+            // Fallback : charger après un court délai
+            setTimeout(async () => {
+              const [albums, tracks] = await Promise.all([
+                getAlbums(),
+                getTracks()
+              ])
+              setAllAlbums(albums)
+              setAllTracks(tracks)
+              setCompilationsLoading(false)
+            }, 500)
+          }
+        }
+        scheduleLoad()
       } catch (error) {
         console.error('Erreur lors du chargement des albums et pistes:', error)
-      } finally {
         setCompilationsLoading(false)
       }
     }
@@ -180,6 +200,7 @@ function ArtistGrid({ artists }: ArtistGridProps) {
     }
   }
 
+  // Afficher le message "Aucun artiste" seulement s'il n'y a vraiment aucun artiste
   if (artists.length === 0) {
     return (
       <div className="album-grid-empty">
@@ -197,11 +218,7 @@ function ArtistGrid({ artists }: ArtistGridProps) {
         const artistImage = artist.coverArt
         const builtImageUrl = artistImage ? buildImageUrl(artistImage) : null
 
-        if (artistImage) {
-          console.log(`[ArtistGrid] Artiste: ${artist.name}`)
-          console.log(`[ArtistGrid]   coverArt (brut): ${artistImage}`)
-          console.log(`[ArtistGrid]   URL construite: ${builtImageUrl}`)
-        }
+        // Pas de logs pour optimiser les performances
 
         return (
           <div 
@@ -216,16 +233,9 @@ function ArtistGrid({ artists }: ArtistGridProps) {
                   src={builtImageUrl} 
                   alt={artist.name}
                   className="album-cover"
-                  loading="eager"
+                  loading="lazy"
                   decoding="async"
-                  onLoad={() => {
-                    console.log(`[ArtistGrid] ✓ Image chargée avec succès pour ${artist.name}`)
-                  }}
                   onError={(e) => {
-                    console.error(`[ArtistGrid] ✗ Erreur chargement image pour ${artist.name}:`, {
-                      originalUrl: artistImage,
-                      builtUrl: builtImageUrl
-                    })
                     // En cas d'erreur, afficher le placeholder
                     const target = e.target as HTMLImageElement
                     if (target) {

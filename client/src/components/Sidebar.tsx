@@ -54,14 +54,14 @@ function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       path: '/library',
     },
     {
-    icon: 'bi-person-badge',
+      icon: 'bi-person-badge',
       label: 'Artistes',
       path: '/artists',
     },
     {
-      icon: 'bi-vinyl',
-      label: 'Albums',
-      path: '/albums',
+      icon: 'bi-tags',
+      label: 'Genres',
+      path: '/genres',
     },
     {
       icon: 'bi-collection',

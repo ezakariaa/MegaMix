@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Container, Row, Col } from 'react-bootstrap'
 import ArtistGrid from '../components/ArtistGrid'
 import { getArtists, Artist } from '../services/musicService'
@@ -9,37 +9,25 @@ function Artists() {
   const [refreshKey, setRefreshKey] = useState(0)
   const scrollRestoredRef = useRef(false)
 
-  useEffect(() => {
-    // Charger les artistes immédiatement
-    loadArtists(false)
-    
-    // Recharger les images depuis Google Drive en parallèle (ne bloque pas l'affichage)
-    reloadImagesFromGoogleDrive().then(() => {
-      // Attendre un peu pour que le cache soit bien chargé puis recharger les artistes
-      setTimeout(() => {
-        console.log('[Artists] Premier rechargement après chargement Google Drive...')
-        loadArtists(true) // Forcer le rechargement pour récupérer les nouvelles images
-      }, 1500)
-      
-      // Recharger à nouveau après un délai supplémentaire pour récupérer les images
-      // qui ont été trouvées et sauvegardées en arrière-plan
-      setTimeout(() => {
-        console.log('[Artists] Deuxième rechargement pour récupérer les images sauvegardées...')
-        loadArtists(true)
-      }, 4000)
-      
-      // Dernier rechargement pour s'assurer que toutes les images sont bien récupérées
-      setTimeout(() => {
-        console.log('[Artists] Rechargement final avec refresh du composant...')
-        loadArtists(true)
-        setRefreshKey(prev => prev + 1)
-      }, 7000)
+  // Trier les artistes avec useMemo pour éviter les re-tris inutiles
+  // Doit être déclaré avant les useEffect qui l'utilisent
+  const sortedArtists = useMemo(() => {
+    return [...artists].sort((a, b) => {
+      const nameA = a.name.toLowerCase().trim()
+      const nameB = b.name.toLowerCase().trim()
+      return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' })
     })
+  }, [artists])
+
+  useEffect(() => {
+    // Charger les artistes immédiatement et afficher la page (utilise le cache si disponible)
+    // Les images seront récupérées automatiquement via les fanarts en arrière-plan
+    loadArtists(false)
   }, [])
 
   // Restaurer la position de scroll après le chargement des artistes
   useEffect(() => {
-    if (artists.length === 0) return
+    if (sortedArtists.length === 0) return
 
     const restoreScrollPosition = () => {
       try {
@@ -113,62 +101,28 @@ function Artists() {
     }
 
     restoreScrollPosition()
-  }, [artists, refreshKey])
+  }, [sortedArtists, refreshKey])
 
-  const reloadImagesFromGoogleDrive = async (): Promise<void> => {
+  const loadArtists = async (forceReload = false): Promise<void> => {
     try {
-      const ARTIST_IMAGES_FOLDER_ID = '1J8sjsrpahbYPIT3LGofGvPub9N_qjEGn' // ID du dossier Google Drive
-      console.log('[Artists] Rechargement des images depuis Google Drive...')
+      let loadedArtists: Artist[]
       
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/music/load-artist-images-from-drive`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ folderId: ARTIST_IMAGES_FOLDER_ID }),
-      })
-      
-      if (response.ok) {
+      if (forceReload) {
+        // Forcer le rechargement depuis l'API
+        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/music/artists?forceReload=true`
+        const response = await fetch(apiUrl)
         const data = await response.json()
-        console.log('[Artists] ✓ Images Google Drive rechargées:', data.message)
-        console.log(`[Artists] ${data.imagesLoaded || 0} image(s) chargée(s) dans le cache`)
-        
-        // Afficher quelques noms d'artistes chargés pour debug
-        if (data.artists && Array.isArray(data.artists)) {
-          console.log(`[Artists] Exemples d'artistes dans le cache: ${data.artists.slice(0, 5).join(', ')}`)
-        }
-        
-        // Attendre un peu plus longtemps pour que le cache soit bien prêt
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        loadedArtists = data.artists || []
       } else {
-        console.warn('[Artists] Erreur lors du rechargement des images Google Drive:', response.statusText)
+        // Utiliser getArtists() qui utilise le cache en priorité
+        loadedArtists = await getArtists()
       }
-    } catch (error) {
-      console.error('[Artists] Erreur lors du rechargement des images Google Drive:', error)
-    }
-  }
-
-  const loadArtists = async (forceReload = false) => {
-    try {
-      // Ajouter le paramètre forceReload pour forcer le rechargement des images
-      const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/music/artists${forceReload ? '?forceReload=true' : ''}`
-      const response = await fetch(apiUrl)
-      const data = await response.json()
-      const loadedArtists = data.artists || []
       
-      // Trier les artistes par ordre alphabétique (insensible à la casse)
-      const sortedArtists = [...loadedArtists].sort((a, b) => {
-        const nameA = a.name.toLowerCase().trim()
-        const nameB = b.name.toLowerCase().trim()
-        return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' })
-      })
-      setArtists(sortedArtists)
-      console.log(`[Artists] ${sortedArtists.length} artiste(s) chargé(s) et triés par ordre alphabétique${forceReload ? ' (rechargement forcé)' : ''}`)
-      // Compter les artistes avec images
-      const artistsWithImages = sortedArtists.filter(a => a.coverArt).length
-      console.log(`[Artists] ${artistsWithImages} artiste(s) avec image(s) depuis Google Drive`)
+      // Ne pas trier ici, utiliser useMemo pour optimiser
+      setArtists(loadedArtists)
     } catch (error) {
       console.error('Erreur lors du chargement des artistes:', error)
+      throw error // Propager l'erreur pour que le finally soit appelé
     }
   }
 
@@ -176,11 +130,11 @@ function Artists() {
     <Container fluid className="artists-page">
       <Row>
         <Col>
-          <h1 className="page-title">
+          <h1 className="page-title mb-3">
             <i className="bi bi-person-badge me-2"></i>
             Artistes
           </h1>
-          <ArtistGrid key={refreshKey} artists={artists} />
+          <ArtistGrid key={refreshKey} artists={sortedArtists} />
         </Col>
       </Row>
     </Container>
@@ -188,3 +142,4 @@ function Artists() {
 }
 
 export default Artists
+

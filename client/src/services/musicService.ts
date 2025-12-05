@@ -9,17 +9,16 @@ const getApiBaseUrl = () => {
   const cleanUrl = baseUrl.replace(/\/$/, '')
   // Ajouter /api si ce n'est pas déjà présent
   const apiUrl = cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`
-  // Log pour déboguer (uniquement en développement)
-  if (import.meta.env.DEV) {
-    console.log('[API] URL de base configurée:', baseUrl)
-    console.log('[API] URL de l\'API:', apiUrl)
-  }
   return apiUrl
 }
 const API_BASE_URL = getApiBaseUrl()
 
-// Log l'URL utilisée au chargement du module
-console.log('[API] URL de l\'API utilisée:', API_BASE_URL)
+// Log l'URL utilisée au chargement du module (toujours afficher pour le débogage)
+console.log('[API] ===== Configuration API =====')
+console.log('[API] VITE_API_URL:', import.meta.env.VITE_API_URL || 'non défini (utilise localhost:5000)')
+console.log('[API] URL de base:', import.meta.env.VITE_API_URL || 'http://localhost:5000')
+console.log('[API] URL de l\'API finale:', API_BASE_URL)
+console.log('[API] Environnement:', import.meta.env.MODE || 'development')
 
 // Avertissement si on est sur GitHub Pages et que l'API pointe vers localhost
 if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
@@ -37,21 +36,21 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('github.i
  */
 export function buildImageUrl(imageUrl: string | null | undefined): string | null {
   if (!imageUrl) {
-    console.log('[buildImageUrl] imageUrl est null ou undefined')
+    console.warn('[buildImageUrl] ⚠️ imageUrl est null ou undefined')
     return null
   }
   
-  console.log(`[buildImageUrl] URL d'entrée: ${imageUrl.substring(0, 100)}...`)
+  console.log(`[buildImageUrl] 🔍 URL d'entrée: ${imageUrl}`)
   
   // Si c'est déjà une URL absolue (http/https), l'utiliser telle quelle
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    console.log('[buildImageUrl] URL absolue détectée, utilisation directe')
+    console.log(`[buildImageUrl] ✅ URL absolue détectée, utilisation directe: ${imageUrl.substring(0, 100)}...`)
     return imageUrl
   }
   
   // Si c'est une data URL (base64), l'utiliser telle quelle
   if (imageUrl.startsWith('data:')) {
-    console.log('[buildImageUrl] Data URL détectée, utilisation directe')
+    console.log(`[buildImageUrl] ✅ Data URL détectée, utilisation directe`)
     return imageUrl
   }
   
@@ -64,13 +63,13 @@ export function buildImageUrl(imageUrl: string | null | undefined): string | nul
   // Si l'URL commence déjà par /, l'utiliser directement
   if (imageUrl.startsWith('/')) {
     const finalUrl = `${cleanUrl}${imageUrl}`
-    console.log(`[buildImageUrl] URL relative avec /, URL finale: ${finalUrl.substring(0, 150)}...`)
+    console.log(`[buildImageUrl] ✅ URL relative avec /, URL finale: ${finalUrl}`)
     return finalUrl
   }
   
   // Sinon, ajouter / devant
   const finalUrl = `${cleanUrl}/${imageUrl}`
-  console.log(`[buildImageUrl] URL relative sans /, URL finale: ${finalUrl.substring(0, 150)}...`)
+  console.log(`[buildImageUrl] ✅ URL relative sans /, URL finale: ${finalUrl}`)
   return finalUrl
 }
 
@@ -83,6 +82,7 @@ export interface Album {
   genre?: string
   trackCount?: number
   coverArt?: string | null
+  cdCount?: number // Nombre de CDs si l'album contient plusieurs CDs
 }
 
 export interface Track {
@@ -209,6 +209,19 @@ export async function scanMusicFiles(
  * Récupère tous les albums avec cache
  */
 export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
+  // Si le cache est activé, retourner immédiatement le cache s'il existe (chargement instantané)
+  if (useCache) {
+    const cached = getCached<Album[]>('albums')
+    if (cached && cached.length > 0) {
+      console.log('[API] Albums chargés depuis le cache:', cached.length, 'albums')
+      // Rafraîchir en arrière-plan sans bloquer
+      refreshAlbumsInBackground().catch(() => {
+        // Ignorer les erreurs en arrière-plan
+      })
+      return cached
+    }
+  }
+  
   const url = `${API_BASE_URL}/music/albums`
   console.log('[API] Requête GET vers:', url)
   
@@ -458,9 +471,19 @@ export async function searchAll(query: string): Promise<SearchResults> {
  * Récupère tous les artistes
  */
 export async function getArtists(): Promise<Artist[]> {
+  // Si le cache existe, retourner immédiatement (chargement instantané)
+  const cached = getCached<Artist[]>('artists')
+  if (cached && cached.length > 0) {
+    // Rafraîchir en arrière-plan sans bloquer
+    refreshArtistsInBackground().catch(() => {
+      // Ignorer les erreurs en arrière-plan
+    })
+    return cached
+  }
+  
   try {
     const response = await axios.get<{ artists: Artist[] }>(`${API_BASE_URL}/music/artists`, {
-      timeout: 10000, // Augmenté à 10 secondes
+      timeout: 10000,
     })
     const artists = response.data.artists
     
@@ -472,11 +495,10 @@ export async function getArtists(): Promise<Artist[]> {
     return artists
   } catch (error: any) {
     // Si erreur, essayer le cache même expiré
-    const cached = getCached<Artist[]>('artists')
-    if (cached && cached.length > 0) {
-      console.warn('Utilisation du cache en raison d\'une erreur réseau')
+    const expiredCache = getCached<Artist[]>('artists')
+    if (expiredCache && expiredCache.length > 0) {
       refreshArtistsInBackground()
-      return cached
+      return expiredCache
     }
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
@@ -564,17 +586,55 @@ export async function getGenres(): Promise<Genre[]> {
 }
 
 /**
+ * Fonction utilitaire pour séparer les genres multiples (séparés par virgule)
+ */
+export function splitGenres(genreString: string | undefined): string[] {
+  if (!genreString || genreString.trim() === '') {
+    return []
+  }
+  return genreString
+    .split(',')
+    .map(genre => genre.trim())
+    .filter(genre => genre.length > 0)
+}
+
+/**
+ * Fonction utilitaire pour générer un ID de genre à partir d'un nom
+ */
+export function generateGenreId(genreName: string): string {
+  return genreName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Vérifie si un album appartient à un genre donné (en tenant compte des genres multiples)
+ */
+export function albumBelongsToGenre(album: Album, genreId: string): boolean {
+  if (!album.genre) return false
+  
+  const genreList = splitGenres(album.genre)
+  return genreList.some(genreName => {
+    const albumGenreId = generateGenreId(genreName)
+    return albumGenreId === genreId
+  })
+}
+
+/**
  * Récupère les albums d'un genre
  */
 export async function getGenreAlbums(genreId: string): Promise<Album[]> {
   try {
     const allAlbums = await getAlbums()
     return allAlbums.filter(album => {
-      // Générer l'ID du genre depuis le nom du genre de l'album
-      const albumGenreId = album.genre 
-        ? album.genre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-        : null
-      return albumGenreId === genreId
+      if (!album.genre) return false
+      
+      // Séparer les genres multiples (ex: "Rock, Pop" -> ["Rock", "Pop"])
+      const genreList = splitGenres(album.genre)
+      
+      // Vérifier si l'un des genres de l'album correspond au genreId recherché
+      return genreList.some(genreName => {
+        const albumGenreId = generateGenreId(genreName)
+        return albumGenreId === genreId
+      })
     })
   } catch (error: any) {
     console.error('Erreur lors de la récupération des albums du genre:', error)

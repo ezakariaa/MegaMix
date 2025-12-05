@@ -148,6 +148,9 @@ function AlbumGrid({ albums, selectionMode = false, selectedAlbums = new Set(), 
             {album.trackCount && (
               <p className="album-track-count">
                 {album.trackCount} {album.trackCount === 1 ? 'piste' : 'pistes'}
+                {album.cdCount && album.cdCount > 1 && (
+                  <span> • {album.cdCount} CD{album.cdCount > 1 ? 's' : ''}</span>
+                )}
               </p>
             )}
           </div>

@@ -19,6 +19,7 @@ export interface Album {
   trackCount?: number
   coverArt?: string | null
   googleDriveFolderId?: string // ID du dossier Google Drive si l'album vient d'un dossier
+  cdCount?: number // Nombre de CDs si l'album contient plusieurs CDs
 }
 
 export interface Track {

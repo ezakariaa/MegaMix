@@ -6,15 +6,16 @@ import './Home.css'
 
 function Compilations() {
   const [compilations, setCompilations] = useState<Album[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Ne pas afficher de loader par défaut
 
   useEffect(() => {
+    // Charger immédiatement sans loader (utilise le cache)
     loadCompilations()
   }, [])
 
   const loadCompilations = async () => {
-    setLoading(true)
     try {
+      // getAlbums() utilise automatiquement le cache s'il est disponible
       const allAlbums = await getAlbums()
       // Filtrer les compilations : albums avec "Various", "Compilation", "Various Artists" dans l'artiste
       const filtered = allAlbums.filter(album => {
@@ -27,8 +28,6 @@ function Compilations() {
       setCompilations(filtered)
     } catch (error) {
       console.error('Erreur lors du chargement des compilations:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -40,14 +39,7 @@ function Compilations() {
             <i className="bi bi-collection-play me-2"></i>
             Compilations
           </h1>
-          {loading && compilations.length === 0 ? (
-            <div className="text-center py-5">
-              <Spinner animation="border" role="status" className="mb-3">
-                <span className="visually-hidden">Chargement...</span>
-              </Spinner>
-              <p className="text-muted">Chargement des compilations...</p>
-            </div>
-          ) : compilations.length === 0 ? (
+          {compilations.length === 0 ? (
             <div className="text-center py-5">
               <i className="bi bi-collection-play" style={{ fontSize: '4rem', opacity: 0.3, marginBottom: '16px' }}></i>
               <p className="text-muted">Aucune compilation dans votre bibliothèque</p>
