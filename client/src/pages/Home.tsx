@@ -3,6 +3,7 @@ import { Container, Row, Col } from 'react-bootstrap'
 import DragDropZone from '../components/DragDropZone'
 import AlbumGrid from '../components/AlbumGrid'
 import { getAlbums, scanMusicFiles, Album } from '../services/musicService'
+import { getCached } from '../services/cacheService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './Home.css'
 
@@ -12,13 +13,18 @@ function Home() {
   const { currentTrack, queue } = usePlayer()
 
   useEffect(() => {
-    // Charger immédiatement sans loader (utilise le cache)
+    // Afficher immédiatement avec le cache (même si vide)
+    // Puis rafraîchir en arrière-plan
+    const cached = getCached<Album[]>('albums')
+    if (cached) {
+      setAlbums(cached) // Afficher immédiatement le cache
+    }
+    // Charger en arrière-plan (même si cache existe, pour rafraîchir)
     loadAlbums()
   }, [])
 
   const loadAlbums = async () => {
     try {
-      // getAlbums() utilise automatiquement le cache s'il est disponible
       const loadedAlbums = await getAlbums()
       setAlbums(loadedAlbums)
     } catch (error) {

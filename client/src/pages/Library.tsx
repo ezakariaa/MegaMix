@@ -3,6 +3,7 @@ import { Container, Row, Col, Alert, Dropdown, Modal, Button, Form } from 'react
 import DragDropZone from '../components/DragDropZone'
 import AlbumGrid from '../components/AlbumGrid'
 import { getAlbums, scanMusicFiles, deleteAlbums, addMusicFromGoogleDrive, reanalyzeTags, Album } from '../services/musicService'
+import { getCached } from '../services/cacheService'
 import './Home.css'
 
 type SortOption = 'random' | 'alphabetical' | 'artist' | 'year' | 'recent'
@@ -24,8 +25,12 @@ function Library() {
 
   // Charger les albums au montage du composant
   useEffect(() => {
-    // Charger immédiatement sans afficher le loader (utilise le cache)
-    // getAlbums() utilise automatiquement le cache s'il est disponible
+    // Afficher immédiatement avec le cache (même si vide)
+    const cached = getCached<Album[]>('albums')
+    if (cached) {
+      setAlbums(cached) // Afficher immédiatement le cache
+    }
+    // Charger en arrière-plan
     loadAlbums(false)
   }, [])
 

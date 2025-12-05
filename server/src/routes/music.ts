@@ -499,41 +499,29 @@ router.post('/scan-path', async (req: Request, res: Response) => {
 
 /**
  * Route pour obtenir tous les albums
- * Optimisée pour répondre rapidement comme /artists
+ * Répond IMMÉDIATEMENT sans attendre le chargement
  */
-router.get('/albums', async (req: Request, res: Response) => {
-  // Si les données ne sont pas chargées, essayer de les charger rapidement
-  if (!dataLoaded) {
-    console.log('[ALBUMS] Données pas encore chargées, chargement...')
-    try {
-      // Timeout de 5 secondes maximum pour éviter les blocages
-      const loadPromise = loadAllData()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout chargement')), 5000)
-      )
-      
-      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await Promise.race([
-        loadPromise,
-        timeoutPromise
-      ]) as { albums: Album[]; tracks: Track[]; artists: Artist[] }
-      
-      albums = loadedAlbums
-      tracks = loadedTracks
-      artists = loadedArtists
-      dataLoaded = true
-      console.log(`[ALBUMS] Données chargées: ${albums.length} album(s)`)
-    } catch (error) {
-      console.error('[ALBUMS] Erreur ou timeout lors du chargement:', error)
-      // Si erreur ou timeout, retourner immédiatement ce qui est en mémoire (même si vide)
-      // Ne pas bloquer la réponse - comme /artists
-      dataLoaded = true
-      res.json({ albums })
-      return
-    }
-  }
-  
-  // Retourner immédiatement les albums en mémoire
+router.get('/albums', (req: Request, res: Response) => {
+  // Retourner IMMÉDIATEMENT les albums en mémoire (même si vides)
+  // Le chargement se fera en arrière-plan si nécessaire
   res.json({ albums })
+  
+  // Charger les données en arrière-plan si ce n'est pas déjà fait
+  if (!dataLoaded) {
+    console.log('[ALBUMS] Chargement des données en arrière-plan...')
+    loadAllData()
+      .then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
+        albums = loadedAlbums
+        tracks = loadedTracks
+        artists = loadedArtists
+        dataLoaded = true
+        console.log(`[ALBUMS] Données chargées en arrière-plan: ${albums.length} album(s)`)
+      })
+      .catch((error) => {
+        console.error('[ALBUMS] Erreur lors du chargement en arrière-plan:', error)
+        dataLoaded = true // Marquer comme chargé pour éviter de réessayer indéfiniment
+      })
+  }
 })
 
 /**
@@ -608,22 +596,28 @@ router.get('/tracks', (req: Request, res: Response) => {
 
 /**
  * Route pour obtenir tous les artistes
+ * Répond IMMÉDIATEMENT sans attendre le chargement
  */
-router.get('/artists', async (req: Request, res: Response) => {
-  // Attendre que les données soient chargées si ce n'est pas encore fait
+router.get('/artists', (req: Request, res: Response) => {
+  // Si les données ne sont pas chargées, retourner un tableau vide immédiatement
   if (!dataLoaded) {
-    console.log('[ARTISTS] Données pas encore chargées, attente...')
-    try {
-      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
-      albums = loadedAlbums
-      tracks = loadedTracks
-      artists = loadedArtists
-      dataLoaded = true
-      console.log(`[ARTISTS] Données chargées: ${artists.length} artiste(s)`)
-    } catch (error) {
-      console.error('[ARTISTS] Erreur lors du chargement:', error)
-      return res.json({ artists: [] })
-    }
+    res.json({ artists: [] })
+    
+    // Charger les données en arrière-plan
+    console.log('[ARTISTS] Chargement des données en arrière-plan...')
+    loadAllData()
+      .then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
+        albums = loadedAlbums
+        tracks = loadedTracks
+        artists = loadedArtists
+        dataLoaded = true
+        console.log(`[ARTISTS] Données chargées en arrière-plan: ${artists.length} artiste(s)`)
+      })
+      .catch((error) => {
+        console.error('[ARTISTS] Erreur lors du chargement en arrière-plan:', error)
+        dataLoaded = true
+      })
+    return
   }
   
   // Calculer le nombre d'albums par artiste et INCLURE les images en cache
@@ -799,34 +793,28 @@ function generateGenreId(genreName: string): string {
 
 /**
  * Route pour obtenir tous les genres
- * Optimisée pour répondre rapidement comme /artists
+ * Répond IMMÉDIATEMENT sans attendre le chargement
  */
-router.get('/genres', async (req: Request, res: Response) => {
-  // Si les données ne sont pas chargées, essayer de les charger rapidement
+router.get('/genres', (req: Request, res: Response) => {
+  // Si les données ne sont pas chargées, retourner un tableau vide immédiatement
   if (!dataLoaded) {
-    console.log('[GENRES] Données pas encore chargées, chargement...')
-    try {
-      // Timeout de 5 secondes maximum pour éviter les blocages
-      const loadPromise = loadAllData()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout chargement')), 5000)
-      )
-      
-      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await Promise.race([
-        loadPromise,
-        timeoutPromise
-      ]) as { albums: Album[]; tracks: Track[]; artists: Artist[] }
-      
-      albums = loadedAlbums
-      tracks = loadedTracks
-      artists = loadedArtists
-      dataLoaded = true
-      console.log(`[GENRES] Données chargées: ${albums.length} album(s), ${tracks.length} piste(s)`)
-    } catch (error) {
-      console.error('[GENRES] Erreur ou timeout lors du chargement:', error)
-      // Si erreur ou timeout, retourner immédiatement un tableau vide (comme /artists)
-      return res.json({ genres: [] })
-    }
+    res.json({ genres: [] })
+    
+    // Charger les données en arrière-plan
+    console.log('[GENRES] Chargement des données en arrière-plan...')
+    loadAllData()
+      .then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
+        albums = loadedAlbums
+        tracks = loadedTracks
+        artists = loadedArtists
+        dataLoaded = true
+        console.log(`[GENRES] Données chargées en arrière-plan: ${albums.length} album(s), ${tracks.length} piste(s)`)
+      })
+      .catch((error) => {
+        console.error('[GENRES] Erreur lors du chargement en arrière-plan:', error)
+        dataLoaded = true
+      })
+    return
   }
   
   // Extraire les genres uniques depuis les albums et pistes
