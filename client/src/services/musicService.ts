@@ -637,29 +637,22 @@ export async function getGenres(useCache: boolean = true): Promise<Genre[]> {
     
     return genres
   } catch (error: any) {
-    // Si erreur, essayer le cache même expiré
+    // Si erreur, essayer le cache même expiré (PRIORITÉ ABSOLUE)
     if (useCache) {
       // D'abord essayer le cache valide
       const cached = getCached<Genre[]>('genres')
       if (cached && cached.length > 0) {
-        console.warn('[API] Utilisation du cache valide en raison d\'une erreur réseau')
-        refreshGenresInBackground()
+        refreshGenresInBackground().catch(() => {})
         return cached
       }
-      // Si pas de cache valide, essayer le cache expiré
+      // Si pas de cache valide, essayer le cache expiré (même très ancien)
       const expiredCache = getCachedEvenExpired<Genre[]>('genres')
       if (expiredCache && expiredCache.length > 0) {
-        console.warn('[API] Utilisation du cache expiré en raison d\'une erreur réseau')
-        refreshGenresInBackground()
+        refreshGenresInBackground().catch(() => {})
         return expiredCache
       }
     }
-    // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      console.warn('Serveur backend non disponible:', error.message)
-    } else {
-      console.error('Erreur lors de la récupération des genres:', error)
-    }
+    // Si pas de cache du tout, retourner tableau vide
     return []
   }
 }

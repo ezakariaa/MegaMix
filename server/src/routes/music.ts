@@ -49,25 +49,52 @@ let artists: Artist[] = []
 let dataLoaded = false // Flag pour indiquer si les données sont chargées
 let genresCache: Genre[] | null = null // Cache pour les genres calculés
 let genresCacheTimestamp = 0 // Timestamp du cache
-const GENRES_CACHE_DURATION = 60000 // Cache valide pendant 1 minute
+// Cache valide pendant 1 minute
+const GENRES_CACHE_DURATION_MS = (60 * 1000) as number
 
-// Charger les données au démarrage de manière optimisée
-// Utiliser setImmediate pour ne pas bloquer le démarrage du serveur
-setImmediate(async () => {
+// Charger les données au démarrage de manière PRIORITAIRE
+// Essayer de charger immédiatement, mais ne pas bloquer le serveur plus de 2 secondes
+(async () => {
   try {
     const startTime = Date.now()
-    const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await loadAllData()
-    albums = loadedAlbums
-    tracks = loadedTracks
-    artists = loadedArtists
-    dataLoaded = true
-    const loadTime = Date.now() - startTime
-    console.log(`[INIT] ✅ Données chargées en ${loadTime}ms: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+    // Timeout de 2 secondes maximum pour le chargement initial
+    const loadPromise = loadAllData()
+    const timeoutPromise = new Promise<{ albums: Album[]; tracks: Track[]; artists: Artist[] }>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout chargement initial')), 2000)
+    )
+    
+    try {
+      const { albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists } = await Promise.race([
+        loadPromise,
+        timeoutPromise
+      ])
+      albums = loadedAlbums
+      tracks = loadedTracks
+      artists = loadedArtists
+      dataLoaded = true
+      const loadTime = Date.now() - startTime
+      console.log(`[INIT] ✅ Données chargées en ${loadTime}ms: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+    } catch (timeoutError) {
+      // Si timeout, continuer le chargement en arrière-plan
+      console.warn('[INIT] ⚠️ Chargement initial lent, continuation en arrière-plan...')
+      dataLoaded = false // Les données ne sont pas encore chargées
+      loadPromise.then(({ albums: loadedAlbums, tracks: loadedTracks, artists: loadedArtists }) => {
+        albums = loadedAlbums
+        tracks = loadedTracks
+        artists = loadedArtists
+        dataLoaded = true
+        const loadTime = Date.now() - startTime
+        console.log(`[INIT] ✅ Données chargées en arrière-plan en ${loadTime}ms: ${albums.length} album(s), ${tracks.length} piste(s), ${artists.length} artiste(s)`)
+      }).catch((error) => {
+        console.error('[INIT] ❌ Erreur lors du chargement en arrière-plan:', error)
+        dataLoaded = true
+      })
+    }
   } catch (error) {
     console.error('[INIT] ❌ Erreur lors du chargement des données:', error)
     dataLoaded = true // Marquer comme chargé même en cas d'erreur pour éviter de bloquer indéfiniment
   }
-})
+})()
 
 /**
  * Route pour scanner des fichiers audio uploadés
