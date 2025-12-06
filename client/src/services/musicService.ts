@@ -164,11 +164,23 @@ export async function scanMusicFiles(
     )
     const result = response.data
     
-    // Invalider le cache après ajout
+    // NE PAS invalider le cache immédiatement après ajout
+    // La synchronisation avec Railway prend du temps
+    // On va recharger les albums pour mettre à jour le cache avec les nouvelles données
+    // Mais on garde l'ancien cache en cas d'erreur réseau
     if (result.success) {
-      removeCached('albums')
-      removeCached('artists')
-      removeCached('genres')
+      // Recharger les albums pour mettre à jour le cache avec les nouvelles données
+      // Mais ne pas supprimer le cache avant, pour éviter d'afficher "aucun album"
+      try {
+        const updatedAlbums = await getAlbums(false) // Ne pas utiliser le cache, forcer le rechargement
+        if (updatedAlbums.length > 0) {
+          // Mettre à jour le cache avec les nouvelles données
+          setCached('albums', updatedAlbums)
+        }
+      } catch (error) {
+        // Si erreur, garder l'ancien cache pour éviter d'afficher "aucun album"
+        console.warn('[SCAN] Erreur lors du rechargement, conservation du cache existant')
+      }
     }
     
     return result

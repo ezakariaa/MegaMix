@@ -516,8 +516,14 @@ router.post('/scan-path', async (req: Request, res: Response) => {
     })
 
     // Sauvegarder les données après modification
+    genresCache = null // Invalider le cache des genres après ajout
     await saveAllData(albums, tracks, artists).catch((error) => {
       console.error('[PERSISTENCE] Erreur lors de la sauvegarde après scan-path:', error)
+    })
+    
+    // Synchroniser avec Railway/Koyeb en arrière-plan (ne pas bloquer la réponse)
+    syncToKoyeb(albums, tracks, artists).catch((error) => {
+      console.error('[SYNC] Erreur lors de la synchronisation après scan-path:', error)
     })
 
     res.json({
