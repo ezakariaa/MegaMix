@@ -209,8 +209,23 @@ export async function scanMusicFiles(
  */
 /**
  * Crée une version légère d'un album (sans données volumineuses)
+ * Supprime les images base64 qui sont très volumineuses
+ * UNIQUEMENT sur GitHub Pages (production) pour éviter les problèmes de quota localStorage
  */
 function createLightweightAlbum(album: Album): Album {
+  // Vérifier si on est sur GitHub Pages (production)
+  const isGitHubPages = typeof window !== 'undefined' && 
+                        (window.location.hostname.includes('github.io') || 
+                         window.location.hostname.includes('github.com'))
+  
+  // Si coverArt est une data URL (base64), la supprimer SEULEMENT sur GitHub Pages
+  let coverArt = album.coverArt
+  if (isGitHubPages && coverArt && coverArt.startsWith('data:')) {
+    // Sur GitHub Pages, supprimer les images base64 pour réduire la taille du cache
+    coverArt = null
+  }
+  // Sur localhost, garder toutes les images (y compris base64)
+  
   return {
     id: album.id,
     title: album.title,
@@ -219,7 +234,7 @@ function createLightweightAlbum(album: Album): Album {
     year: album.year,
     genre: album.genre,
     trackCount: album.trackCount,
-    coverArt: album.coverArt, // Garder l'URL, pas l'image elle-même
+    coverArt: coverArt,
     cdCount: album.cdCount,
   }
 }
@@ -256,16 +271,30 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     // Mettre en cache les albums (avec gestion d'erreur silencieuse)
     // Si le cache échoue (quota dépassé), on continue sans cache mais l'app fonctionne
     if (useCache && albums.length > 0) {
+      // Vérifier si on est sur GitHub Pages (production)
+      const isGitHubPages = typeof window !== 'undefined' && 
+                            (window.location.hostname.includes('github.io') || 
+                             window.location.hostname.includes('github.com'))
+      
+      // Sur GitHub Pages, utiliser la version légère pour éviter les problèmes de quota
+      // Sur localhost, utiliser les albums complets avec images
+      const albumsToCache = isGitHubPages ? albums.map(createLightweightAlbum) : albums
+      
       try {
-        setCached('albums', albums)
+        setCached('albums', albumsToCache)
       } catch (cacheError: any) {
-        // Si le cache échoue (quota dépassé), nettoyer et réessayer avec version légère
-        if (cacheError instanceof DOMException && (cacheError.code === 22 || cacheError.name === 'QuotaExceededError')) {
+        // Si le cache échoue encore (quota dépassé), nettoyer et réessayer
+        const isQuotaError = 
+          (cacheError instanceof DOMException && (cacheError.code === 22 || cacheError.name === 'QuotaExceededError')) ||
+          cacheError.name === 'QuotaExceededError'
+        
+        if (isQuotaError) {
           console.warn('[API] Quota localStorage dépassé, nettoyage du cache...')
           try {
             // Nettoyer les anciens caches
             removeCached('tracks') // Les tracks sont souvent volumineux
-            // Réessayer avec version légère
+            removeCached('artists') // Les artists peuvent aussi être volumineux
+            // Réessayer avec version légère (même sur localhost en cas d'erreur)
             const lightweightAlbums = albums.map(createLightweightAlbum)
             setCached('albums', lightweightAlbums)
           } catch (retryError) {
@@ -316,8 +345,17 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     }
     
     // Ne pas afficher d'erreur si le serveur n'est pas démarré (normal au démarrage)
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      console.warn('[API] Serveur backend non disponible:', error.message)
+    const is404Error = error.response?.status === 404
+    const isLocalhost = typeof window !== 'undefined' && 
+                        (window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1')
+    
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK' || is404Error) {
+      if (is404Error && isLocalhost) {
+        console.warn('[API] Serveur backend non démarré. Démarrez-le avec: cd server && npm run dev')
+      } else {
+        console.warn('[API] Serveur backend non disponible:', error.message)
+      }
     } else {
       console.error('[API] Erreur lors de la récupération des albums:', error)
     }

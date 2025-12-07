@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Album, getAlbumTracks } from '../services/musicService'
+import { Album, getAlbumTracks, buildImageUrl } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './AlbumGrid.css'
 
@@ -104,9 +104,25 @@ function AlbumGrid({ albums, selectionMode = false, selectedAlbums = new Set(), 
           <div className="album-cover-container">
             {album.coverArt ? (
               <img 
-                src={album.coverArt} 
+                src={buildImageUrl(album.coverArt) || album.coverArt} 
                 alt={`${album.title} - ${album.artist}`}
                 className="album-cover"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  // En cas d'erreur, afficher le placeholder
+                  const target = e.target as HTMLImageElement
+                  if (target) {
+                    target.style.display = 'none'
+                    const container = target.parentElement
+                    if (container && !container.querySelector('.album-cover-placeholder')) {
+                      const placeholder = document.createElement('div')
+                      placeholder.className = 'album-cover-placeholder'
+                      placeholder.innerHTML = '<i class="bi bi-vinyl"></i>'
+                      container.appendChild(placeholder)
+                    }
+                  }
+                }}
               />
             ) : (
               <div className="album-cover-placeholder">

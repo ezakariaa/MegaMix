@@ -9,6 +9,7 @@ dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000
+const HOST = process.env.HOST || '0.0.0.0'
 
 // Compression gzip pour réduire la taille des réponses (important pour Railway)
 app.use(compression({
@@ -134,7 +135,6 @@ app.get('/api/playlists', (req, res) => {
 
 // Démarrage du serveur
 // Écouter sur 0.0.0.0 pour être accessible depuis Railway
-const HOST = process.env.HOST || '0.0.0.0'
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Serveur MuZak démarré sur le port ${PORT}`)
   console.log(`📍 URL: http://${HOST}:${PORT}`)
