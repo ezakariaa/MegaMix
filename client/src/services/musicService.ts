@@ -248,7 +248,7 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
   
   try {
     const response = await axios.get<{ albums: Album[] }>(url, {
-      timeout: 5000, // Timeout réduit à 5 secondes - réponse serveur immédiate attendue
+      timeout: 20000, // Timeout augmenté à 20 secondes pour Railway (peut être lent au démarrage)
       // Note: Le navigateur gère automatiquement Accept-Encoding, pas besoin de le définir
     })
     const albums = response.data.albums
@@ -637,7 +637,7 @@ export async function getGenres(useCache: boolean = true): Promise<Genre[]> {
   
   try {
     const response = await axios.get<{ genres: Genre[] }>(`${API_BASE_URL}/music/genres`, {
-      timeout: 5000, // Timeout réduit à 5 secondes - réponse serveur immédiate attendue
+      timeout: 20000, // Timeout augmenté à 20 secondes pour Railway (peut être lent au démarrage)
       // Note: Le navigateur gère automatiquement Accept-Encoding
     })
     const genres = response.data.genres
@@ -831,7 +831,7 @@ export async function sendActiveUserHeartbeat(): Promise<void> {
         headers: {
           'X-Session-Id': sessionId || undefined,
         },
-        timeout: 5000,
+        timeout: 15000, // 15 secondes pour Railway
       }
     )
   } catch (error) {
@@ -848,7 +848,7 @@ export async function getActiveUsersCount(): Promise<number> {
     const response = await axios.get<{ count: number }>(
       `${API_BASE_URL}/music/active-users/count`,
       {
-        timeout: 5000,
+        timeout: 15000, // 15 secondes pour Railway
       }
     )
     return response.data.count || 0
