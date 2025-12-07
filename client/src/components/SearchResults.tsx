@@ -43,7 +43,7 @@ function SearchResults({ results, searchQuery = '', onClose }: SearchResultsProp
               >
                 <div className="search-results-item-cover">
                   {album.coverArt ? (
-                    <img src={album.coverArt} alt={album.title} />
+                    <img src={buildImageUrl(album.coverArt, album.id) || album.coverArt} alt={album.title} />
                   ) : (
                     <div className="search-results-item-placeholder">
                       <i className="bi bi-vinyl"></i>

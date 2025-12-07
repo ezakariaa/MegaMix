@@ -2206,6 +2206,60 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
 })
 
 /**
+ * Route pour servir les images de couverture d'album depuis base64
+ * Convertit les images base64 en images binaires pour éviter les problèmes de taille
+ */
+router.get('/album-cover/:albumId', (req: Request, res: Response) => {
+  try {
+    const { albumId } = req.params
+    const album = albums.find(a => a.id === albumId)
+    
+    if (!album || !album.coverArt) {
+      return res.status(404).json({ error: 'Image non trouvée' })
+    }
+    
+    // Si c'est déjà une URL (pas base64), rediriger
+    if (album.coverArt.startsWith('http://') || album.coverArt.startsWith('https://')) {
+      return res.redirect(album.coverArt)
+    }
+    
+    // Si c'est une data URL (base64), la convertir en image binaire
+    if (album.coverArt.startsWith('data:')) {
+      const matches = album.coverArt.match(/^data:([^;]+);base64,(.+)$/)
+      if (matches) {
+        const mimeType = matches[1] || 'image/jpeg'
+        const base64Data = matches[2]
+        const imageBuffer = Buffer.from(base64Data, 'base64')
+        
+        res.setHeader('Content-Type', mimeType)
+        res.setHeader('Cache-Control', 'public, max-age=31536000') // Cache 1 an
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        return res.send(imageBuffer)
+      }
+    }
+    
+    // Si c'est un chemin de fichier, servir le fichier
+    if (album.coverArt.startsWith('/') || album.coverArt.includes('\\')) {
+      const fs = require('fs')
+      const path = require('path')
+      if (fs.existsSync(album.coverArt)) {
+        const mimeType = album.coverArt.endsWith('.png') ? 'image/png' : 
+                        album.coverArt.endsWith('.gif') ? 'image/gif' : 'image/jpeg'
+        res.setHeader('Content-Type', mimeType)
+        res.setHeader('Cache-Control', 'public, max-age=31536000')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        return res.sendFile(path.resolve(album.coverArt))
+      }
+    }
+    
+    return res.status(404).json({ error: 'Format d\'image non supporté' })
+  } catch (error: any) {
+    console.error('[ALBUM COVER] Erreur:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+/**
  * Route proxy pour servir les images externes (évite les problèmes CORS)
  */
 router.get('/image-proxy', async (req: Request, res: Response) => {

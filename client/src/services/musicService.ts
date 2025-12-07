@@ -33,8 +33,9 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('github.i
 /**
  * Construit l'URL complète d'une image (pour les images d'artistes, albums, etc.)
  * Gère les URLs absolues (http/https), les URLs relatives (/api/...), et les data URLs
+ * Pour les images base64 d'albums, utilise la route serveur pour éviter les problèmes de taille
  */
-export function buildImageUrl(imageUrl: string | null | undefined): string | null {
+export function buildImageUrl(imageUrl: string | null | undefined, albumId?: string): string | null {
   if (!imageUrl) return null
   
   // Si c'est déjà une URL absolue (http/https), l'utiliser telle quelle
@@ -42,7 +43,15 @@ export function buildImageUrl(imageUrl: string | null | undefined): string | nul
     return imageUrl
   }
   
-  // Si c'est une data URL (base64), l'utiliser telle quelle
+  // Si c'est une data URL (base64) ET qu'on a un albumId, utiliser la route serveur
+  // Cela évite les problèmes de taille sur GitHub Pages/Railway
+  if (imageUrl.startsWith('data:') && albumId) {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    const cleanUrl = baseUrl.replace(/\/$/, '')
+    return `${cleanUrl}/api/music/album-cover/${albumId}`
+  }
+  
+  // Si c'est une data URL sans albumId, l'utiliser telle quelle (pour les artistes, etc.)
   if (imageUrl.startsWith('data:')) {
     return imageUrl
   }
@@ -209,23 +218,12 @@ export async function scanMusicFiles(
  */
 /**
  * Crée une version légère d'un album (sans données volumineuses)
- * Supprime les images base64 qui sont très volumineuses
- * UNIQUEMENT sur GitHub Pages (production) pour éviter les problèmes de quota localStorage
+ * NE supprime PAS les images - elles sont nécessaires pour l'affichage
+ * La gestion du quota se fait au niveau du cacheService avec nettoyage préventif
  */
 function createLightweightAlbum(album: Album): Album {
-  // Vérifier si on est sur GitHub Pages (production)
-  const isGitHubPages = typeof window !== 'undefined' && 
-                        (window.location.hostname.includes('github.io') || 
-                         window.location.hostname.includes('github.com'))
-  
-  // Si coverArt est une data URL (base64), la supprimer SEULEMENT sur GitHub Pages
-  let coverArt = album.coverArt
-  if (isGitHubPages && coverArt && coverArt.startsWith('data:')) {
-    // Sur GitHub Pages, supprimer les images base64 pour réduire la taille du cache
-    coverArt = null
-  }
-  // Sur localhost, garder toutes les images (y compris base64)
-  
+  // Garder toutes les images - elles sont nécessaires pour l'affichage
+  // Le problème de quota est géré par le cacheService avec nettoyage préventif
   return {
     id: album.id,
     title: album.title,
@@ -234,7 +232,7 @@ function createLightweightAlbum(album: Album): Album {
     year: album.year,
     genre: album.genre,
     trackCount: album.trackCount,
-    coverArt: coverArt,
+    coverArt: album.coverArt, // Garder les images - nécessaires pour l'affichage
     cdCount: album.cdCount,
   }
 }
@@ -268,20 +266,25 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
     })
     const albums = response.data.albums
     
+    // Log pour déboguer les images (seulement en développement)
+    if (import.meta.env.DEV && albums.length > 0) {
+      const albumsWithImages = albums.filter(a => a.coverArt && a.coverArt.trim() !== '')
+      console.log(`[API] Albums chargés: ${albums.length}, avec images: ${albumsWithImages.length}`)
+      if (albumsWithImages.length > 0) {
+        const firstWithImage = albumsWithImages[0]
+        const imageType = firstWithImage.coverArt?.startsWith('data:') ? 'base64' : 
+                         firstWithImage.coverArt?.startsWith('http') ? 'URL' : 'autre'
+        console.log(`[API] Exemple d'image (type: ${imageType}):`, firstWithImage.coverArt?.substring(0, 50) + '...')
+      }
+    }
+    
     // Mettre en cache les albums (avec gestion d'erreur silencieuse)
     // Si le cache échoue (quota dépassé), on continue sans cache mais l'app fonctionne
     if (useCache && albums.length > 0) {
-      // Vérifier si on est sur GitHub Pages (production)
-      const isGitHubPages = typeof window !== 'undefined' && 
-                            (window.location.hostname.includes('github.io') || 
-                             window.location.hostname.includes('github.com'))
-      
-      // Sur GitHub Pages, utiliser la version légère pour éviter les problèmes de quota
-      // Sur localhost, utiliser les albums complets avec images
-      const albumsToCache = isGitHubPages ? albums.map(createLightweightAlbum) : albums
-      
+      // Utiliser les albums tels quels - les images sont nécessaires pour l'affichage
+      // Le problème de quota est géré par le cacheService avec nettoyage préventif
       try {
-        setCached('albums', albumsToCache)
+        setCached('albums', albums)
       } catch (cacheError: any) {
         // Si le cache échoue encore (quota dépassé), nettoyer et réessayer
         const isQuotaError = 
@@ -294,9 +297,8 @@ export async function getAlbums(useCache: boolean = true): Promise<Album[]> {
             // Nettoyer les anciens caches
             removeCached('tracks') // Les tracks sont souvent volumineux
             removeCached('artists') // Les artists peuvent aussi être volumineux
-            // Réessayer avec version légère (même sur localhost en cas d'erreur)
-            const lightweightAlbums = albums.map(createLightweightAlbum)
-            setCached('albums', lightweightAlbums)
+            // Réessayer - garder les images car elles sont nécessaires
+            setCached('albums', albums)
           } catch (retryError) {
             // Si ça échoue encore, continuer sans cache (l'app fonctionne quand même)
             console.warn('[API] Impossible de mettre en cache, continuation sans cache')

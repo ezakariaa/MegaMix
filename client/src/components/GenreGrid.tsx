@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Genre, getGenreAlbums, getAlbumTracks, getAlbums, Album, albumBelongsToGenre } from '../services/musicService'
+import { Genre, getGenreAlbums, getAlbumTracks, getAlbums, Album, albumBelongsToGenre, buildImageUrl } from '../services/musicService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './AlbumGrid.css' // Réutiliser les styles d'AlbumGrid
 
@@ -22,10 +22,17 @@ function GenreGrid({ genres }: GenreGridProps) {
 
   // Créer un map pour trouver rapidement la couverture du premier album de chaque genre
   const genreCoverMap = useMemo(() => {
-    const map = new Map<string, string | null>()
+    const map = new Map<string, { coverArt: string | null; albumId?: string }>()
     genres.forEach(genre => {
       const firstAlbum = allAlbums.find(album => albumBelongsToGenre(album, genre.id))
-      map.set(genre.id, firstAlbum?.coverArt || null)
+      if (firstAlbum) {
+        map.set(genre.id, { 
+          coverArt: firstAlbum.coverArt || null,
+          albumId: firstAlbum.id
+        })
+      } else {
+        map.set(genre.id, { coverArt: null })
+      }
     })
     return map
   }, [genres, allAlbums])
@@ -99,7 +106,9 @@ function GenreGrid({ genres }: GenreGridProps) {
     <div className="album-grid">
       {genres.map((genre) => {
         // Utiliser la couverture du premier album du genre
-        const genreImage = genreCoverMap.get(genre.id)
+        const genreImageData = genreCoverMap.get(genre.id)
+        const genreImage = genreImageData?.coverArt
+        const albumId = genreImageData?.albumId
 
         return (
           <div 
@@ -110,9 +119,25 @@ function GenreGrid({ genres }: GenreGridProps) {
             <div className="album-cover-container">
               {genreImage ? (
                 <img 
-                  src={genreImage} 
+                  src={buildImageUrl(genreImage, albumId) || genreImage} 
                   alt={genre.name}
                   className="album-cover"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    // En cas d'erreur, afficher le placeholder
+                    const target = e.target as HTMLImageElement
+                    if (target) {
+                      target.style.display = 'none'
+                      const container = target.parentElement
+                      if (container && !container.querySelector('.album-cover-placeholder')) {
+                        const placeholder = document.createElement('div')
+                        placeholder.className = 'album-cover-placeholder'
+                        placeholder.innerHTML = '<i class="bi bi-music-note-beamed"></i>'
+                        container.appendChild(placeholder)
+                      }
+                    }
+                  }}
                 />
               ) : (
                 <div className="album-cover-placeholder">

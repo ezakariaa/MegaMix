@@ -104,7 +104,7 @@ function AlbumGrid({ albums, selectionMode = false, selectedAlbums = new Set(), 
           <div className="album-cover-container">
             {album.coverArt ? (
               <img 
-                src={buildImageUrl(album.coverArt) || album.coverArt} 
+                src={buildImageUrl(album.coverArt, album.id) || album.coverArt} 
                 alt={`${album.title} - ${album.artist}`}
                 className="album-cover"
                 loading="lazy"
