@@ -550,11 +550,24 @@ router.post('/scan-path', async (req: Request, res: Response) => {
 /**
  * Route pour obtenir tous les albums
  * Répond IMMÉDIATEMENT sans attendre le chargement
+ * Remplace les images base64 par des URLs vers la route serveur pour réduire la taille
  */
 router.get('/albums', (req: Request, res: Response) => {
+  // Convertir les images base64 en URLs serveur pour réduire la taille de la réponse
+  const albumsWithImageUrls = albums.map(album => {
+    // Si l'image est en base64, la remplacer par une URL vers la route serveur
+    if (album.coverArt && album.coverArt.startsWith('data:')) {
+      return {
+        ...album,
+        coverArt: `/api/music/album-cover/${album.id}`
+      }
+    }
+    return album
+  })
+  
   // Retourner IMMÉDIATEMENT les albums en mémoire (même si vides)
   // Le chargement se fera en arrière-plan si nécessaire
-  res.json({ albums })
+  res.json({ albums: albumsWithImageUrls })
   
   // Charger les données en arrière-plan si ce n'est pas déjà fait
   if (!dataLoaded) {

@@ -263,6 +263,66 @@ export async function searchArtistImage(artistName: string): Promise<string | nu
     console.warn(`[ARTIST IMAGE] Erreur TheAudioDB pour ${artistName}:`, error)
   }
 
+  // PRIORITÉ 5 : Essayer Deezer
+  try {
+    console.log(`[ARTIST IMAGE] Tentative Deezer pour: ${artistName}`)
+    const deezerImage = await Promise.race([
+      searchDeezer(artistName),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ])
+    if (deezerImage && deezerImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Deezer pour: ${artistName}`)
+      return deezerImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Deezer pour ${artistName}:`, error)
+  }
+
+  // PRIORITÉ 6 : Essayer Yandex Music
+  try {
+    console.log(`[ARTIST IMAGE] Tentative Yandex Music pour: ${artistName}`)
+    const yandexImage = await Promise.race([
+      searchYandexMusic(artistName),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ])
+    if (yandexImage && yandexImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Yandex Music pour: ${artistName}`)
+      return yandexImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Yandex Music pour ${artistName}:`, error)
+  }
+
+  // PRIORITÉ 7 : Essayer Amazon Music
+  try {
+    console.log(`[ARTIST IMAGE] Tentative Amazon Music pour: ${artistName}`)
+    const amazonImage = await Promise.race([
+      searchAmazonMusic(artistName),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ])
+    if (amazonImage && amazonImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Amazon Music pour: ${artistName}`)
+      return amazonImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Amazon Music pour ${artistName}:`, error)
+  }
+
+  // PRIORITÉ 8 : Essayer Tidal
+  try {
+    console.log(`[ARTIST IMAGE] Tentative Tidal pour: ${artistName}`)
+    const tidalImage = await Promise.race([
+      searchTidal(artistName),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ])
+    if (tidalImage && tidalImage.startsWith('http')) {
+      console.log(`[ARTIST IMAGE] ✓ Image trouvée sur Tidal pour: ${artistName}`)
+      return tidalImage
+    }
+  } catch (error) {
+    console.warn(`[ARTIST IMAGE] Erreur Tidal pour ${artistName}:`, error)
+  }
+
   console.log(`[ARTIST IMAGE] ✗ Aucune image trouvée pour: ${artistName}`)
   return null
 }
@@ -1070,5 +1130,151 @@ function searchTheAudioDbBanner(artistName: string): Promise<string | null> {
       clearTimeout(timeout)
       reject(err)
     })
+  })
+}
+
+/**
+ * Recherche une image d'artiste via Deezer API
+ */
+function searchDeezer(artistName: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const encodedName = encodeURIComponent(artistName)
+    // D'abord rechercher l'artiste pour obtenir son ID
+    const searchUrl = `https://api.deezer.com/search/artist?q=${encodedName}&limit=1`
+    
+    const timeout = setTimeout(() => {
+      console.log(`[DEEZER] Timeout pour ${artistName}`)
+      resolve(null)
+    }, 5000)
+    
+    https.get(searchUrl, {
+      headers: {
+        'User-Agent': 'MegaMix/1.0',
+        'Accept': 'application/json'
+      }
+    }, (response: any) => {
+      let data = ''
+      
+      response.on('data', (chunk: Buffer) => {
+        data += chunk.toString()
+      })
+      
+      response.on('end', () => {
+        clearTimeout(timeout)
+        try {
+          const json = JSON.parse(data)
+          if (json.data && json.data.length > 0) {
+            const artist = json.data[0]
+            // Récupérer l'image de l'artiste (picture_big ou picture_medium)
+            const imageUrl = artist.picture_big || artist.picture_medium || artist.picture || null
+            
+            if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('placeholder')) {
+              console.log(`[DEEZER] ✓ Image trouvée pour ${artistName}`)
+              resolve(imageUrl)
+              return
+            }
+          }
+          resolve(null)
+        } catch (error) {
+          console.warn(`[DEEZER] Erreur parsing JSON pour ${artistName}:`, error)
+          resolve(null)
+        }
+      })
+    }).on('error', (err) => {
+      clearTimeout(timeout)
+      console.warn(`[DEEZER] Erreur réseau pour ${artistName}:`, err.message)
+      resolve(null)
+    })
+  })
+}
+
+/**
+ * Recherche une image d'artiste via Yandex Music API
+ */
+function searchYandexMusic(artistName: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const encodedName = encodeURIComponent(artistName)
+    // Yandex Music API - recherche d'artiste
+    const searchUrl = `https://music.yandex.ru/handlers/music-search.jsx?text=${encodedName}&type=artist&page=0`
+    
+    const timeout = setTimeout(() => {
+      console.log(`[YANDEX] Timeout pour ${artistName}`)
+      resolve(null)
+    }, 5000)
+    
+    https.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://music.yandex.ru/'
+      }
+    }, (response: any) => {
+      let data = ''
+      
+      response.on('data', (chunk: Buffer) => {
+        data += chunk.toString()
+      })
+      
+      response.on('end', () => {
+        clearTimeout(timeout)
+        try {
+          const json = JSON.parse(data)
+          // Yandex retourne les résultats dans result.artists.results
+          if (json.result && json.result.artists && json.result.artists.results && json.result.artists.results.length > 0) {
+            const artist = json.result.artists.results[0]
+            // L'image est dans cover.uri ou cover.items[0].uri
+            let imageUrl: string | null = null
+            
+            if (artist.cover && artist.cover.uri) {
+              imageUrl = `https://${artist.cover.uri.replace('%%', '400x400')}`
+            } else if (artist.cover && artist.cover.items && artist.cover.items.length > 0) {
+              imageUrl = `https://${artist.cover.items[0].uri.replace('%%', '400x400')}`
+            }
+            
+            if (imageUrl && imageUrl.startsWith('http')) {
+              console.log(`[YANDEX] ✓ Image trouvée pour ${artistName}`)
+              resolve(imageUrl)
+              return
+            }
+          }
+          resolve(null)
+        } catch (error) {
+          console.warn(`[YANDEX] Erreur parsing JSON pour ${artistName}:`, error)
+          resolve(null)
+        }
+      })
+    }).on('error', (err) => {
+      clearTimeout(timeout)
+      console.warn(`[YANDEX] Erreur réseau pour ${artistName}:`, err.message)
+      resolve(null)
+    })
+  })
+}
+
+/**
+ * Recherche une image d'artiste via Amazon Music (via scraping ou API si disponible)
+ */
+function searchAmazonMusic(artistName: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    // Amazon Music n'a pas d'API publique facilement accessible
+    // On peut essayer de construire une URL de recherche et extraire l'image
+    // Mais cela nécessiterait du scraping, ce qui est fragile
+    // Pour l'instant, on retourne null et on pourra améliorer plus tard
+    console.log(`[AMAZON] Recherche non implémentée pour ${artistName} (API limitée)`)
+    resolve(null)
+  })
+}
+
+/**
+ * Recherche une image d'artiste via Tidal
+ */
+function searchTidal(artistName: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    // Tidal nécessite généralement une authentification pour son API
+    // On peut essayer une recherche publique mais les résultats sont limités
+    const encodedName = encodeURIComponent(artistName)
+    // Tidal utilise souvent des IDs spécifiques, difficile sans authentification
+    console.log(`[TIDAL] Recherche non implémentée pour ${artistName} (API nécessite authentification)`)
+    resolve(null)
   })
 }

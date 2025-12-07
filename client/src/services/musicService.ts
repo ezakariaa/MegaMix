@@ -43,6 +43,14 @@ export function buildImageUrl(imageUrl: string | null | undefined, albumId?: str
     return imageUrl
   }
   
+  // Si c'est une URL relative qui commence par /api/music/album-cover/, c'est déjà une URL serveur
+  // Le serveur retourne maintenant ces URLs au lieu de base64
+  if (imageUrl.startsWith('/api/music/album-cover/')) {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    const cleanUrl = baseUrl.replace(/\/$/, '')
+    return `${cleanUrl}${imageUrl}`
+  }
+  
   // Si c'est une data URL (base64) ET qu'on a un albumId, utiliser la route serveur
   // Cela évite les problèmes de taille sur GitHub Pages/Railway
   if (imageUrl.startsWith('data:') && albumId) {
