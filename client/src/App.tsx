@@ -43,7 +43,8 @@ function App() {
     setIsSidebarOpen(false)
   }
 
-  // Base path pour GitHub Pages
+  // Base path pour GitHub Pages (sans slash final pour React Router)
+  // Note: vite.config.ts utilise '/MegaMix/' (avec slash) mais React Router basename doit être '/MegaMix' (sans slash)
   const basename = process.env.NODE_ENV === 'production' ? '/MegaMix' : ''
 
   return (

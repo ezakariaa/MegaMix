@@ -66,17 +66,21 @@ export async function scanMusicFolder(folderPath: string): Promise<{
                 album.trackCount = (album.trackCount || 0) + 1
               }
 
-              // Créer ou mettre à jour l'artiste
-              if (!artistsMap.has(track.artistId)) {
-                artistsMap.set(track.artistId, {
-                  id: track.artistId,
-                  name: track.artist,
-                  trackCount: 1,
-                })
-              } else {
-                const artist = artistsMap.get(track.artistId)!
-                artist.trackCount = (artist.trackCount || 0) + 1
-              }
+              // Créer ou mettre à jour les artistes (séparer les artistes multiples)
+              const artistNames = splitArtists(track.artist)
+              artistNames.forEach(artistName => {
+                const artistId = generateId(artistName)
+                if (!artistsMap.has(artistId)) {
+                  artistsMap.set(artistId, {
+                    id: artistId,
+                    name: artistName,
+                    trackCount: 1,
+                  })
+                } else {
+                  const artist = artistsMap.get(artistId)!
+                  artist.trackCount = (artist.trackCount || 0) + 1
+                }
+              })
             }
           } catch (error) {
             console.error(`Erreur lors de l'extraction de ${fullPath}:`, error)
@@ -326,5 +330,19 @@ function generateId(str: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Sépare les artistes multiples (séparés par virgule) en artistes individuels
+ * Exemple: "Bryan Adams, Keith Scott, Mickey Curry" -> ["Bryan Adams", "Keith Scott", "Mickey Curry"]
+ */
+function splitArtists(artistString: string): string[] {
+  if (!artistString || artistString.trim() === '') {
+    return []
+  }
+  return artistString
+    .split(',')
+    .map(artist => artist.trim())
+    .filter(artist => artist.length > 0)
 }
 

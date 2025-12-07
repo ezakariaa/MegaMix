@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Container, Row, Col } from 'react-bootstrap'
 import DragDropZone from '../components/DragDropZone'
 import AlbumGrid from '../components/AlbumGrid'
-import { getAlbums, scanMusicFiles, Album } from '../services/musicService'
+import { getAlbums, scanMusicFiles, Album, sendActiveUserHeartbeat, getActiveUsersCount } from '../services/musicService'
 import { getCached } from '../services/cacheService'
 import { usePlayer } from '../contexts/PlayerContext'
 import './Home.css'
@@ -10,6 +10,7 @@ import './Home.css'
 function Home() {
   const [albums, setAlbums] = useState<Album[]>([])
   const [loading, setLoading] = useState(false)
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(0)
   const { currentTrack, queue } = usePlayer()
 
   useEffect(() => {
@@ -21,7 +22,37 @@ function Home() {
     }
     // Charger en arrière-plan (même si cache existe, pour rafraîchir)
     loadAlbums()
+    
+    // Envoyer le premier heartbeat immédiatement
+    sendActiveUserHeartbeat()
+    
+    // Envoyer un heartbeat toutes les 30 secondes
+    const heartbeatInterval = setInterval(() => {
+      sendActiveUserHeartbeat()
+    }, 30000)
+    
+    // Charger le nombre d'utilisateurs actifs immédiatement
+    loadActiveUsersCount()
+    
+    // Mettre à jour le nombre d'utilisateurs actifs toutes les 10 secondes
+    const usersCountInterval = setInterval(() => {
+      loadActiveUsersCount()
+    }, 10000)
+    
+    return () => {
+      clearInterval(heartbeatInterval)
+      clearInterval(usersCountInterval)
+    }
   }, [])
+  
+  const loadActiveUsersCount = async () => {
+    try {
+      const count = await getActiveUsersCount()
+      setActiveUsersCount(count)
+    } catch (error) {
+      // Ignorer les erreurs silencieusement
+    }
+  }
 
   const loadAlbums = async () => {
     try {
@@ -271,6 +302,24 @@ function Home() {
               <p>Aucun album disponible</p>
             </div>
           )}
+        </Col>
+      </Row>
+      
+      {/* Footer avec nombre d'utilisateurs actifs */}
+      <Row className="mt-5">
+        <Col>
+          <div className="home-footer">
+            <div className="active-users-badge">
+              <i className="bi bi-people-fill me-2"></i>
+              <span>
+                {activeUsersCount === 0 
+                  ? 'Aucun utilisateur en ligne' 
+                  : activeUsersCount === 1 
+                    ? '1 utilisateur en ligne' 
+                    : `${activeUsersCount} utilisateurs en ligne`}
+              </span>
+            </div>
+          </div>
         </Col>
       </Row>
     </Container>

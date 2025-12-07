@@ -13,7 +13,7 @@ interface AlbumGridProps {
 
 function AlbumGrid({ albums, selectionMode = false, selectedAlbums = new Set(), onSelectionChange }: AlbumGridProps) {
   const navigate = useNavigate()
-  const { playAlbum } = usePlayer()
+  const { playAlbum, currentTrack, isPlaying, togglePlay } = usePlayer()
   const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null)
 
   const handleAlbumClick = (album: Album) => {
@@ -48,6 +48,13 @@ function AlbumGrid({ albums, selectionMode = false, selectedAlbums = new Set(), 
     e.stopPropagation()
     
     if (loadingAlbumId === album.id) return
+
+    // Si l'album est déjà en cours de lecture, toggle play/pause
+    const isCurrentAlbum = currentTrack?.albumId === album.id
+    if (isCurrentAlbum) {
+      togglePlay()
+      return
+    }
 
     setLoadingAlbumId(album.id)
     try {
@@ -122,14 +129,14 @@ function AlbumGrid({ albums, selectionMode = false, selectedAlbums = new Set(), 
                 <button
                   className="album-play-button-overlay"
                   onClick={(e) => handlePlayClick(e, album)}
-                  aria-label="Lire l'album"
+                  aria-label={currentTrack?.albumId === album.id && isPlaying ? 'Pause' : 'Lire l\'album'}
                 >
                   {loadingAlbumId === album.id ? (
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="visually-hidden">Chargement...</span>
                     </div>
                   ) : (
-                    <i className="bi bi-play-fill"></i>
+                    <i className={`bi ${currentTrack?.albumId === album.id && isPlaying ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
                   )}
                 </button>
               </div>

@@ -48,6 +48,10 @@ let tracks: Track[] = []
 let artists: Artist[] = []
 let dataLoaded = false // Flag pour indiquer si les données sont chargées
 let genresCache: Genre[] | null = null // Cache pour les genres calculés
+
+// Suivi des utilisateurs actifs (Map<sessionId, timestamp>)
+const activeUsers = new Map<string, number>()
+const ACTIVE_USER_TIMEOUT = 2 * 60 * 1000 // 2 minutes
 let genresCacheTimestamp = 0 // Timestamp du cache
 // Cache valide pendant 1 minute
 const GENRES_CACHE_DURATION_MS = (60 * 1000) as number
@@ -157,17 +161,21 @@ router.post('/scan-files', upload.array('files', 100), async (req: Request, res:
             }
           }
 
-          // Créer ou mettre à jour l'artiste
-          if (!artistsMap.has(track.artistId)) {
-            artistsMap.set(track.artistId, {
-              id: track.artistId,
-              name: track.artist,
-              trackCount: 1,
-            })
-          } else {
-            const artist = artistsMap.get(track.artistId)!
-            artist.trackCount = (artist.trackCount || 0) + 1
-          }
+          // Créer ou mettre à jour les artistes (séparer les artistes multiples)
+          const artistNames = splitArtists(track.artist)
+          artistNames.forEach((artistName: string) => {
+            const artistId = generateId(artistName)
+            if (!artistsMap.has(artistId)) {
+              artistsMap.set(artistId, {
+                id: artistId,
+                name: artistName,
+                trackCount: 1,
+              })
+            } else {
+              const artist = artistsMap.get(artistId)!
+              artist.trackCount = (artist.trackCount || 0) + 1
+            }
+          })
         }
 
         // NE PAS SUPPRIMER le fichier temporaire - il sera servi directement depuis là
@@ -775,20 +783,54 @@ router.get('/artists/:artistId', async (req: Request, res: Response) => {
         .catch(() => {})
     }
     
-    // Rechercher la biographie de l'artiste sur Last.fm (en arrière-plan)
+    // Rechercher la biographie de l'artiste sur Last.fm
+    // Essayer de récupérer de manière synchrone avec un timeout court (2 secondes max)
     let biography: string | null = artist.biography || null
     if (!artist.biography) {
-      getArtistBiography(artist.name)
-        .then((bio) => {
-          if (bio) {
-            const artistIndex = artists.findIndex(a => a.id === artistId)
-            if (artistIndex >= 0) {
-              artists[artistIndex].biography = bio
-              saveArtists(artists).catch(() => {})
-            }
+      try {
+        // Essayer de récupérer la biographie avec un timeout de 2 secondes
+        const biographyPromise = getArtistBiography(artist.name)
+        const timeoutPromise = new Promise<string | null>((resolve) => 
+          setTimeout(() => resolve(null), 2000)
+        )
+        
+        const bio = await Promise.race([biographyPromise, timeoutPromise])
+        if (bio) {
+          biography = bio
+          // Sauvegarder immédiatement
+          const artistIndex = artists.findIndex(a => a.id === artistId)
+          if (artistIndex >= 0) {
+            artists[artistIndex].biography = bio
+            saveArtists(artists).catch(() => {})
           }
-        })
-        .catch(() => {})
+        } else {
+          // Si timeout, continuer la recherche en arrière-plan
+          getArtistBiography(artist.name)
+            .then((bio) => {
+              if (bio) {
+                const artistIndex = artists.findIndex(a => a.id === artistId)
+                if (artistIndex >= 0) {
+                  artists[artistIndex].biography = bio
+                  saveArtists(artists).catch(() => {})
+                }
+              }
+            })
+            .catch(() => {})
+        }
+      } catch (error) {
+        // En cas d'erreur, continuer sans biographie mais rechercher en arrière-plan
+        getArtistBiography(artist.name)
+          .then((bio) => {
+            if (bio) {
+              const artistIndex = artists.findIndex(a => a.id === artistId)
+              if (artistIndex >= 0) {
+                artists[artistIndex].biography = bio
+                saveArtists(artists).catch(() => {})
+              }
+            }
+          })
+          .catch(() => {})
+      }
     }
     
     const coverArt = artistBackground
@@ -831,6 +873,20 @@ function splitGenres(genreString: string): string[] {
     .split(',')
     .map(genre => genre.trim())
     .filter(genre => genre.length > 0)
+}
+
+/**
+ * Fonction utilitaire pour séparer les artistes multiples (séparés par virgule)
+ * Exemple: "Bryan Adams, Keith Scott, Mickey Curry" -> ["Bryan Adams", "Keith Scott", "Mickey Curry"]
+ */
+function splitArtists(artistString: string): string[] {
+  if (!artistString || artistString.trim() === '') {
+    return []
+  }
+  return artistString
+    .split(',')
+    .map(artist => artist.trim())
+    .filter(artist => artist.length > 0)
 }
 
 /**
@@ -1768,16 +1824,21 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
                   console.log(`[GOOGLE DRIVE] Album mis à jour: ${track.album} (${album.trackCount} pistes${album.cdCount ? `, ${album.cdCount} CD(s)` : ''})`)
                 }
                 
-                if (!artistsMap.has(track.artistId)) {
-                  artistsMap.set(track.artistId, {
-                    id: track.artistId,
-                    name: track.artist,
-                    trackCount: 1,
-                  })
-                } else {
-                  const artist = artistsMap.get(track.artistId)!
-                  artist.trackCount = (artist.trackCount || 0) + 1
-                }
+                // Créer ou mettre à jour les artistes (séparer les artistes multiples)
+                const artistNames = splitArtists(track.artist)
+                artistNames.forEach((artistName: string) => {
+                  const artistId = generateId(artistName)
+                  if (!artistsMap.has(artistId)) {
+                    artistsMap.set(artistId, {
+                      id: artistId,
+                      name: artistName,
+                      trackCount: 1,
+                    })
+                  } else {
+                    const artist = artistsMap.get(artistId)!
+                    artist.trackCount = (artist.trackCount || 0) + 1
+                  }
+                })
               } else {
                 console.error(`[GOOGLE DRIVE] ✗ Échec de l'extraction des métadonnées pour ${file.name}`)
                 console.error(`[GOOGLE DRIVE] Le fichier téléchargé n'est peut-être pas un fichier audio valide ou est corrompu`)
@@ -2091,17 +2152,21 @@ router.post('/add-from-google-drive', async (req: Request, res: Response) => {
       // Ajouter la piste
       tracks.push(track)
 
-      // Créer ou mettre à jour l'artiste
-      const existingArtistIndex = artists.findIndex(a => a.id === track.artistId)
-      if (existingArtistIndex >= 0) {
-        artists[existingArtistIndex].trackCount = (artists[existingArtistIndex].trackCount || 0) + 1
-      } else {
-        artists.push({
-          id: track.artistId,
-          name: track.artist,
-          trackCount: 1,
-        })
-      }
+      // Créer ou mettre à jour les artistes (séparer les artistes multiples)
+      const artistNames = splitArtists(track.artist)
+      artistNames.forEach((artistName: string) => {
+        const artistId = generateId(artistName)
+        const existingArtistIndex = artists.findIndex(a => a.id === artistId)
+        if (existingArtistIndex >= 0) {
+          artists[existingArtistIndex].trackCount = (artists[existingArtistIndex].trackCount || 0) + 1
+        } else {
+          artists.push({
+            id: artistId,
+            name: artistName,
+            trackCount: 1,
+          })
+        }
+      })
 
       // Sauvegarder les données après modification
       try {
@@ -2805,6 +2870,54 @@ router.post('/reanalyze-tags', async (req: Request, res: Response) => {
       details: error.message || 'Erreur inconnue',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
+  }
+})
+
+/**
+ * Route pour signaler qu'un utilisateur est actif (heartbeat)
+ */
+router.post('/active-users/heartbeat', (req: Request, res: Response) => {
+  try {
+    // Générer un ID de session unique pour cet utilisateur
+    const sessionId = req.headers['x-session-id'] as string || 
+                      req.ip + '-' + (req.headers['user-agent'] || 'unknown')
+    
+    // Mettre à jour le timestamp de dernière activité
+    activeUsers.set(sessionId, Date.now())
+    
+    // Nettoyer les utilisateurs inactifs (plus vieux que 2 minutes)
+    const now = Date.now()
+    for (const [id, timestamp] of activeUsers.entries()) {
+      if (now - timestamp > ACTIVE_USER_TIMEOUT) {
+        activeUsers.delete(id)
+      }
+    }
+    
+    res.json({ success: true })
+  } catch (error: any) {
+    console.error('Erreur lors du heartbeat:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+/**
+ * Route pour obtenir le nombre d'utilisateurs actifs
+ */
+router.get('/active-users/count', (req: Request, res: Response) => {
+  try {
+    // Nettoyer les utilisateurs inactifs avant de compter
+    const now = Date.now()
+    for (const [id, timestamp] of activeUsers.entries()) {
+      if (now - timestamp > ACTIVE_USER_TIMEOUT) {
+        activeUsers.delete(id)
+      }
+    }
+    
+    const count = activeUsers.size
+    res.json({ count })
+  } catch (error: any) {
+    console.error('Erreur lors du comptage des utilisateurs actifs:', error)
+    res.status(500).json({ error: error.message })
   }
 })
 

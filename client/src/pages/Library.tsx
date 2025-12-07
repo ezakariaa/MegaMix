@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Container, Row, Col, Alert, Dropdown, Modal, Button, Form } from 'react-bootstrap'
 import DragDropZone from '../components/DragDropZone'
 import AlbumGrid from '../components/AlbumGrid'
-import { getAlbums, scanMusicFiles, deleteAlbums, addMusicFromGoogleDrive, reanalyzeTags, Album } from '../services/musicService'
+import { getAlbums, scanMusicFiles, scanMusicFolder, deleteAlbums, addMusicFromGoogleDrive, Album } from '../services/musicService'
 import { getCached } from '../services/cacheService'
 import './Home.css'
 
@@ -19,9 +19,11 @@ function Library() {
   const [googleDriveUrl, setGoogleDriveUrl] = useState('')
   const [isCompilation, setIsCompilation] = useState(false)
   const [loadingGoogleDrive, setLoadingGoogleDrive] = useState(false)
-  const [reanalyzing, setReanalyzing] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedAlbums, setSelectedAlbums] = useState<Set<string>>(new Set())
+  const [showScanFolderModal, setShowScanFolderModal] = useState(false)
+  const [folderPath, setFolderPath] = useState('')
+  const [scanningFolder, setScanningFolder] = useState(false)
 
   // Charger les albums au montage du composant
   useEffect(() => {
@@ -236,42 +238,51 @@ function Library() {
     }
   }
 
-  const handleReanalyzeTags = async () => {
-    if (!window.confirm('Voulez-vous ré-analyser tous les fichiers pour mettre à jour les tags TPE2, TPE3, TPE4 ?\n\nCette opération peut prendre plusieurs minutes.')) {
+  const handleScanFolder = async () => {
+    if (!folderPath.trim()) {
+      setMessage({ type: 'error', text: 'Veuillez saisir un chemin de dossier' })
       return
     }
 
-    setReanalyzing(true)
+    setScanningFolder(true)
     setMessage(null)
+    setProcessingStatus(`Scan du dossier: ${folderPath}`)
 
     try {
-      const result = await reanalyzeTags()
+      const result = await scanMusicFolder(folderPath)
       
       if (result.success) {
+        setProcessingStatus('')
         setMessage({
           type: 'success',
-          text: result.message || 'Ré-analyse terminée avec succès',
+          text: result.message || `${result.albums.length} album(s) ajouté(s) avec succès`,
         })
-
-        // Recharger les albums pour voir les changements
+        
+        // Recharger les albums
         await loadAlbums()
-
-        // Cacher le message après 10 secondes
-        setTimeout(() => setMessage(null), 10000)
+        
+        // Fermer le modal et réinitialiser
+        setShowScanFolderModal(false)
+        setFolderPath('')
+        
+        // Cacher le message après 5 secondes
+        setTimeout(() => setMessage(null), 5000)
       } else {
+        setProcessingStatus('')
         setMessage({
           type: 'error',
-          text: result.message || 'Erreur lors de la ré-analyse',
+          text: 'Erreur lors du scan du dossier',
         })
       }
     } catch (error: any) {
-      console.error('Erreur lors de la ré-analyse:', error)
+      setProcessingStatus('')
       setMessage({
         type: 'error',
-        text: error.message || 'Erreur lors de la ré-analyse',
+        text: error.message || 'Erreur lors du scan du dossier',
       })
     } finally {
-      setReanalyzing(false)
+      setScanningFolder(false)
+      setProcessingStatus('')
     }
   }
 
@@ -414,19 +425,6 @@ function Library() {
                   >
                     <i className="bi bi-cloud-plus"></i>
                   </button>
-                  <button
-                    className="reanalyze-button"
-                    onClick={handleReanalyzeTags}
-                    disabled={reanalyzing}
-                    aria-label="Ré-analyser les tags"
-                    title="Ré-analyser tous les fichiers pour mettre à jour les tags TPE2, TPE3, TPE4"
-                  >
-                    {reanalyzing ? (
-                      <span className="spinner-border spinner-border-sm" role="status"></span>
-                    ) : (
-                      <i className="bi bi-arrow-clockwise"></i>
-                    )}
-                  </button>
                   <Dropdown>
                     <Dropdown.Toggle variant="outline-secondary" className="filter-dropdown">
                       <i className="bi bi-funnel me-2"></i>
@@ -477,6 +475,62 @@ function Library() {
                 </div>
               </div>
             </div>
+
+            {/* Modal Scanner un dossier */}
+            <Modal show={showScanFolderModal} onHide={() => setShowScanFolderModal(false)} centered>
+              <Modal.Header closeButton>
+                <Modal.Title>
+                  <i className="bi bi-folder-plus me-2"></i>
+                  Scanner un dossier de musique
+                </Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <Form>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Chemin du dossier</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="C:\Users\Amine\Music\MonAlbum"
+                      value={folderPath}
+                      onChange={(e) => setFolderPath(e.target.value)}
+                      disabled={scanningFolder}
+                    />
+                    <Form.Text className="text-muted">
+                      Entrez le chemin complet du dossier contenant vos fichiers musicaux (serveur local uniquement)
+                    </Form.Text>
+                  </Form.Group>
+                </Form>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => {
+                    setShowScanFolderModal(false)
+                    setFolderPath('')
+                  }}
+                  disabled={scanningFolder}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  variant="success" 
+                  onClick={handleScanFolder}
+                  disabled={!folderPath.trim() || scanningFolder}
+                >
+                  {scanningFolder ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Scan en cours...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-search me-2"></i>
+                      Scanner
+                    </>
+                  )}
+                </Button>
+              </Modal.Footer>
+            </Modal>
 
             {/* Modal Google Drive */}
             <Modal show={showGoogleDriveModal} onHide={() => setShowGoogleDriveModal(false)} centered>

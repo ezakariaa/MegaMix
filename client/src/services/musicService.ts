@@ -808,6 +808,84 @@ export async function reanalyzeTags(): Promise<{ success: boolean; message: stri
   }
 }
 
+/**
+ * Scanne un dossier de musique via son chemin (depuis le serveur local uniquement)
+ */
+/**
+ * Signale qu'un utilisateur est actif (heartbeat)
+ */
+export async function sendActiveUserHeartbeat(): Promise<void> {
+  try {
+    // Générer un ID de session unique si ce n'est pas déjà fait
+    if (!sessionStorage.getItem('userSessionId')) {
+      const sessionId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      sessionStorage.setItem('userSessionId', sessionId)
+    }
+    
+    const sessionId = sessionStorage.getItem('userSessionId')
+    
+    await axios.post(
+      `${API_BASE_URL}/music/active-users/heartbeat`,
+      {},
+      {
+        headers: {
+          'X-Session-Id': sessionId || undefined,
+        },
+        timeout: 5000,
+      }
+    )
+  } catch (error) {
+    // Ignorer silencieusement les erreurs de heartbeat
+    // pour ne pas polluer la console
+  }
+}
+
+/**
+ * Récupère le nombre d'utilisateurs actifs
+ */
+export async function getActiveUsersCount(): Promise<number> {
+  try {
+    const response = await axios.get<{ count: number }>(
+      `${API_BASE_URL}/music/active-users/count`,
+      {
+        timeout: 5000,
+      }
+    )
+    return response.data.count || 0
+  } catch (error) {
+    console.error('Erreur lors de la récupération du nombre d\'utilisateurs actifs:', error)
+    return 0
+  }
+}
+
+export async function scanMusicFolder(folderPath: string): Promise<ScanResult> {
+  try {
+    const response = await axios.post<ScanResult>(
+      `${API_BASE_URL}/music/scan-path`,
+      { folderPath },
+      { timeout: 300000 } // 5 minutes pour les gros dossiers
+    )
+    const result = response.data
+    
+    // Mettre à jour le cache après scan
+    if (result.success) {
+      try {
+        const updatedAlbums = await getAlbums(false) // Forcer le rechargement
+        if (updatedAlbums.length > 0) {
+          setCached('albums', updatedAlbums)
+        }
+      } catch (error) {
+        console.warn('[SCAN FOLDER] Erreur lors du rechargement, conservation du cache existant')
+      }
+    }
+    
+    return result
+  } catch (error: any) {
+    console.error('Erreur lors du scan du dossier:', error)
+    throw new Error(error.response?.data?.error || error.message || 'Erreur lors du scan du dossier')
+  }
+}
+
 export async function addMusicFromGoogleDrive(url: string, isCompilation: boolean = false): Promise<GoogleDriveAddResult> {
   try {
     const response = await axios.post<GoogleDriveAddResult>(

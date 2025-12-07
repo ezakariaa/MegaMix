@@ -257,12 +257,12 @@ function ArtistGrid({ artists }: ArtistGridProps) {
               )}
               <div className="album-cover-overlay">
                 <button
-                  className="play-button"
+                  className="album-play-button-overlay"
                   onClick={(e) => handlePlayClick(e, artist)}
                   aria-label={currentTrack?.artistId === artist.id && isPlaying ? 'Pause' : 'Lecture'}
                 >
                   {loadingArtistId === artist.id ? (
-                    <div className="spinner-border spinner-border-sm text-white" role="status">
+                    <div className="spinner-border spinner-border-sm" role="status">
                       <span className="visually-hidden">Chargement...</span>
                     </div>
                   ) : (
