@@ -178,69 +178,44 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current.src = audioUrl
       console.log('Source audio définie, chargement...')
       
-      // Attendre que l'audio soit chargé avant de jouer
+      // Charger l'audio
       audioRef.current.load()
       
-      // Attendre que les métadonnées soient chargées
-      await new Promise<void>((resolve, reject) => {
-        if (!audioRef.current) {
-          reject(new Error('Audio element not available'))
-          return
+      // Démarrer la lecture immédiatement sans attendre le chargement complet
+      // L'audio se chargera en streaming
+      const audio = audioRef.current
+      
+      // Gérer les erreurs en arrière-plan
+      const handleError = (e: Event) => {
+        console.error('❌ Erreur lors du chargement de l\'audio:', e)
+        const audioError = audio.error
+        if (audioError) {
+          console.error('Code d\'erreur:', audioError.code, 'Message:', audioError.message)
         }
-
-        const audio = audioRef.current!
-        
-        const handleCanPlay = () => {
-          audio.removeEventListener('canplay', handleCanPlay)
-          audio.removeEventListener('error', handleError)
-          audio.removeEventListener('loadstart', handleLoadStart)
-          console.log('✅ Audio prêt à être joué, readyState:', audio.readyState)
-          resolve()
-        }
-
-        const handleLoadStart = () => {
-          console.log('🔄 Début du chargement audio, readyState:', audio.readyState)
-        }
-
-        const handleError = (e: Event) => {
-          audio.removeEventListener('canplay', handleCanPlay)
-          audio.removeEventListener('error', handleError)
-          audio.removeEventListener('loadstart', handleLoadStart)
-          console.error('❌ Erreur lors du chargement de l\'audio:', e)
-          const audioError = audio.error
-          if (audioError) {
-            console.error('Code d\'erreur:', audioError.code, 'Message:', audioError.message)
-          }
-          reject(new Error(`Erreur lors du chargement de l'audio: ${audioError?.message || 'Erreur inconnue'}`))
-        }
-
-        // Si l'audio est déjà prêt
-        if (audio.readyState >= 3) { // HAVE_FUTURE_DATA ou supérieur
-          console.log('✅ Audio déjà prêt, readyState:', audio.readyState)
-          resolve()
-        } else {
-          console.log('⏳ Attente du chargement audio, readyState actuel:', audio.readyState)
-          audio.addEventListener('canplay', handleCanPlay)
-          audio.addEventListener('error', handleError)
-          audio.addEventListener('loadstart', handleLoadStart)
-          
-          // Timeout de sécurité
-          setTimeout(() => {
-            audio.removeEventListener('canplay', handleCanPlay)
-            audio.removeEventListener('error', handleError)
-            audio.removeEventListener('loadstart', handleLoadStart)
-            if (audio.readyState < 3) {
-              console.error('⏱️ Timeout: readyState après 10s:', audio.readyState)
-              reject(new Error('Timeout lors du chargement de l\'audio'))
-            }
-          }, 10000) // 10 secondes
-        }
-      })
-
-      // Démarrer la lecture
-      console.log('▶️ Démarrage de la lecture...')
+        setIsPlaying(false)
+      }
+      
+      // Nettoyer les anciens listeners
+      audio.removeEventListener('error', handleError)
+      audio.addEventListener('error', handleError)
+      
+      // Démarrer la lecture immédiatement
+      // Le navigateur chargera l'audio en streaming
+      console.log('▶️ Démarrage de la lecture immédiate...')
       setIsPlaying(true)
-      console.log('✅ Lecture démarrée')
+      
+      // Essayer de jouer immédiatement
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Lecture démarrée avec succès')
+          })
+          .catch((error) => {
+            console.warn('⚠️ Lecture automatique bloquée, l\'utilisateur devra cliquer:', error)
+            // Ne pas définir isPlaying à false ici, car l'utilisateur pourra cliquer sur play
+          })
+      }
     } catch (error) {
       console.error('❌ Erreur lors de la préparation de la lecture:', error)
       setIsPlaying(false)

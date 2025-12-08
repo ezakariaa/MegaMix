@@ -123,9 +123,23 @@ function RightSidebar() {
               <div className="now-playing-cover">
                 {currentTrack.coverArt ? (
                   <img 
-                    src={currentTrack.coverArt} 
+                    src={buildImageUrl(currentTrack.coverArt, currentTrack.albumId) || currentTrack.coverArt} 
                     alt={`${currentTrack.album} - ${currentTrack.artist}`}
                     className="now-playing-cover-img"
+                    onError={(e) => {
+                      // En cas d'erreur, afficher le placeholder
+                      const target = e.target as HTMLImageElement
+                      if (target) {
+                        target.style.display = 'none'
+                        const container = target.parentElement
+                        if (container && !container.querySelector('.now-playing-cover-placeholder')) {
+                          const placeholder = document.createElement('div')
+                          placeholder.className = 'now-playing-cover-placeholder'
+                          placeholder.innerHTML = '<i class="bi bi-vinyl"></i>'
+                          container.appendChild(placeholder)
+                        }
+                      }
+                    }}
                   />
                 ) : (
                   <div className="now-playing-cover-placeholder">

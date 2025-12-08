@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../contexts/PlayerContext'
+import { buildImageUrl } from '../services/musicService'
 import './PlayerFooter.css'
 
 function PlayerFooter() {
@@ -197,7 +198,24 @@ function PlayerFooter() {
             title={currentTrack.albumId ? 'Voir l\'album' : undefined}
           >
             {currentTrack.coverArt ? (
-              <img src={currentTrack.coverArt} alt={currentTrack.album} />
+              <img 
+                src={buildImageUrl(currentTrack.coverArt, currentTrack.albumId) || currentTrack.coverArt} 
+                alt={currentTrack.album}
+                onError={(e) => {
+                  // En cas d'erreur, afficher le placeholder
+                  const target = e.target as HTMLImageElement
+                  if (target) {
+                    target.style.display = 'none'
+                    const container = target.parentElement
+                    if (container && !container.querySelector('.player-album-art-placeholder')) {
+                      const placeholder = document.createElement('div')
+                      placeholder.className = 'player-album-art-placeholder'
+                      placeholder.innerHTML = '<i class="bi bi-music-note-beamed"></i>'
+                      container.appendChild(placeholder)
+                    }
+                  }
+                }}
+              />
             ) : (
               <div className="player-album-art-placeholder">
                 <i className="bi bi-music-note-beamed"></i>
