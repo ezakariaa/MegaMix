@@ -1149,10 +1149,41 @@ router.get('/track/:trackId', async (req: Request, res: Response) => {
 
     console.log(`[TRACK] Type MIME: ${contentType}`)
 
-    // Envoyer le fichier avec les bons headers pour le streaming
-    res.setHeader('Content-Type', contentType)
-    res.setHeader('Accept-Ranges', 'bytes')
-    res.sendFile(path.resolve(track.filePath))
+    // Obtenir les stats du fichier pour le Content-Length
+    const fs = require('fs')
+    const stats = fs.statSync(track.filePath)
+    const fileSize = stats.size
+    const filePath = path.resolve(track.filePath)
+
+    // Gérer les range requests pour le streaming progressif
+    const range = req.headers.range
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-')
+      const start = parseInt(parts[0], 10)
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
+      const chunksize = (end - start) + 1
+      const file = fs.createReadStream(filePath, { start, end })
+      
+      const head = {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000', // Cache 1 an
+        'Access-Control-Allow-Origin': '*',
+      }
+      
+      res.writeHead(206, head)
+      file.pipe(res)
+    } else {
+      // Pas de range request, envoyer tout le fichier
+      res.setHeader('Content-Type', contentType)
+      res.setHeader('Accept-Ranges', 'bytes')
+      res.setHeader('Content-Length', fileSize)
+      res.setHeader('Cache-Control', 'public, max-age=31536000') // Cache 1 an
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.sendFile(filePath)
+    }
   } catch (error: any) {
     console.error('[TRACK] Erreur lors de la lecture du fichier:', error)
     if (!res.headersSent) {
